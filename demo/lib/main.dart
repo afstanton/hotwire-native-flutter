@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart'
+    hide NavigationAction;
 import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 
 import 'bridge/form_component.dart';
@@ -12,6 +14,9 @@ void main() {
   Hotwire().config.debugLoggingEnabled = true;
   runApp(const DemoApp());
 }
+
+final RouteObserver<PageRoute<dynamic>> demoRouteObserver =
+    RouteObserver<PageRoute<dynamic>>();
 
 enum DemoEnvironment { remote, local }
 
@@ -37,7 +42,16 @@ class DemoTab {
 }
 
 class DemoApp extends StatelessWidget {
-  const DemoApp({super.key});
+  final Widget? webViewOverride;
+  final SessionWebViewAdapter? adapterOverride;
+  final Object? controllerOverride;
+
+  const DemoApp({
+    this.webViewOverride,
+    this.adapterOverride,
+    this.controllerOverride,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -47,13 +61,27 @@ class DemoApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const MainScreen(),
+      navigatorObservers: [demoRouteObserver],
+      home: MainScreen(
+        webViewOverride: webViewOverride,
+        adapterOverride: adapterOverride,
+        controllerOverride: controllerOverride,
+      ),
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final Widget? webViewOverride;
+  final SessionWebViewAdapter? adapterOverride;
+  final Object? controllerOverride;
+
+  const MainScreen({
+    this.webViewOverride,
+    this.adapterOverride,
+    this.controllerOverride,
+    super.key,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -90,19 +118,44 @@ class _MainScreenState extends State<MainScreen> {
     return tabs;
   }
 
-  void _openNumbersScreen() {
+  void _openNumbersScreen(
+    Session modalSession,
+    InAppWebViewKeepAlive modalKeepAlive,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => NumbersScreen(baseUrl: DemoConfig.baseUrl),
+        builder: (_) => NumbersScreen(
+          baseUrl: DemoConfig.baseUrl,
+          modalSession: modalSession,
+          modalKeepAlive: modalKeepAlive,
+          routeObserver: demoRouteObserver,
+          webViewOverride: widget.webViewOverride,
+          adapterOverride: widget.adapterOverride,
+          controllerOverride: widget.controllerOverride,
+        ),
       ),
     );
   }
 
-  void _openModalWeb(String url) {
+  void _openModalWeb(
+    String url,
+    Session modalSession,
+    InAppWebViewKeepAlive modalKeepAlive,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => WebScreen(url: url, title: "Details", isModal: true),
+        builder: (_) => WebScreen(
+          url: url,
+          title: "Details",
+          session: modalSession,
+          isModal: true,
+          routeObserver: demoRouteObserver,
+          webViewOverride: widget.webViewOverride,
+          adapterOverride: widget.adapterOverride,
+          controllerOverride: widget.controllerOverride,
+          keepAlive: modalKeepAlive,
+        ),
       ),
     );
   }
@@ -130,6 +183,10 @@ class _MainScreenState extends State<MainScreen> {
               onOpenNumbers: _openNumbersScreen,
               onOpenModalWeb: _openModalWeb,
               onOpenImage: _openImageViewer,
+              routeObserver: demoRouteObserver,
+              webViewOverride: widget.webViewOverride,
+              adapterOverride: widget.adapterOverride,
+              controllerOverride: widget.controllerOverride,
             ),
         ],
       ),
@@ -147,11 +204,21 @@ class _MainScreenState extends State<MainScreen> {
 
 class WebTab extends StatefulWidget {
   final String url;
-  final VoidCallback onOpenNumbers;
-  final void Function(String url) onOpenModalWeb;
+  final void Function(Session modalSession, InAppWebViewKeepAlive modalKeepAlive)
+  onOpenNumbers;
+  final void Function(
+    String url,
+    Session modalSession,
+    InAppWebViewKeepAlive modalKeepAlive,
+  )
+  onOpenModalWeb;
   final void Function(String url) onOpenImage;
   final Session? session;
   final Bridge? bridge;
+  final RouteObserver<PageRoute<dynamic>>? routeObserver;
+  final Widget? webViewOverride;
+  final SessionWebViewAdapter? adapterOverride;
+  final Object? controllerOverride;
 
   const WebTab({
     required this.url,
@@ -160,6 +227,10 @@ class WebTab extends StatefulWidget {
     required this.onOpenImage,
     this.session,
     this.bridge,
+    this.routeObserver,
+    this.webViewOverride,
+    this.adapterOverride,
+    this.controllerOverride,
     super.key,
   });
 
@@ -169,6 +240,9 @@ class WebTab extends StatefulWidget {
 
 class _WebTabState extends State<WebTab> {
   late final Session _session;
+  late final Session _modalSession;
+  late final InAppWebViewKeepAlive _mainKeepAlive;
+  late final InAppWebViewKeepAlive _modalKeepAlive;
   late final Bridge _bridge;
   FormActionState? _formAction;
   OverflowActionState? _overflowAction;
@@ -177,7 +251,12 @@ class _WebTabState extends State<WebTab> {
   @override
   void initState() {
     super.initState();
-    _session = widget.session ?? Session();
+    _session =
+        widget.session ??
+        Session(navigationStack: NavigationStack(startLocation: widget.url));
+    _modalSession = Session();
+    _mainKeepAlive = InAppWebViewKeepAlive();
+    _modalKeepAlive = InAppWebViewKeepAlive();
     _session.delegate = _DemoSessionDelegate(
       onFormSubmissionStarted: () {
         if (!mounted) {
@@ -193,6 +272,7 @@ class _WebTabState extends State<WebTab> {
       },
       onVisitProposed: _handleVisitProposal,
     );
+    _modalSession.delegate = _session.delegate;
     _bridge = widget.bridge ?? Bridge();
     _bridge.register(
       DemoFormComponent(
@@ -223,15 +303,43 @@ class _WebTabState extends State<WebTab> {
       return;
     }
 
-    _handleNativeRoute(uri, isModal: _isModalPath(uri));
+    final instruction = _handleNavigationInstruction(
+      uri.toString(),
+      properties: properties,
+    );
+    if (instruction?.action == NavigationAction.none ||
+        instruction?.action == NavigationAction.refresh ||
+        instruction?.action == NavigationAction.pop) {
+      return;
+    }
+
+    _handleNativeRoute(
+      uri,
+      isModal:
+          instruction?.targetStack == NavigationStackType.modal ||
+          _isModalPath(uri),
+    );
   }
 
   void _handleVisitProposal(VisitProposal proposal) {
     final uri = proposal.url;
+    final instruction = _handleNavigationInstruction(
+      uri.toString(),
+      properties: proposal.properties,
+      options: proposal.options,
+    );
+    if (instruction?.action == NavigationAction.none ||
+        instruction?.action == NavigationAction.refresh ||
+        instruction?.action == NavigationAction.pop) {
+      return;
+    }
+
     final handled = _handleNativeRoute(
       uri,
       isModal:
-          proposal.context == PresentationContext.modal || _isModalPath(uri),
+          instruction?.targetStack == NavigationStackType.modal ||
+          proposal.context == PresentationContext.modal ||
+          _isModalPath(uri),
     );
     if (handled) {
       return;
@@ -240,14 +348,51 @@ class _WebTabState extends State<WebTab> {
     _session.visitWithOptions(uri.toString(), options: proposal.options);
   }
 
+  NavigationInstruction? _handleNavigationInstruction(
+    String location, {
+    Map<String, dynamic>? properties,
+    VisitOptions? options,
+  }) {
+    final instruction = _session.routeWithNavigationStack(
+      location,
+      properties: properties,
+      options: options,
+    );
+    if (instruction == null) {
+      return null;
+    }
+
+    if (instruction.didDismissModal && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+
+    if (instruction.action == NavigationAction.refresh &&
+        instruction.refreshLocation != null) {
+      _session.restoreOrVisit(instruction.refreshLocation!);
+    }
+
+    if (instruction.action == NavigationAction.pop && mounted) {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+    }
+
+    return instruction;
+  }
+
   bool _handleNativeRoute(Uri uri, {required bool isModal}) {
     if (_isNumbersIndex(uri)) {
-      widget.onOpenNumbers();
+      widget.onOpenNumbers(_modalSession, _modalKeepAlive);
       return true;
     }
 
     if (_isNumbersDetail(uri) || isModal) {
-      widget.onOpenModalWeb(uri.toString());
+      widget.onOpenModalWeb(
+        uri.toString(),
+        _modalSession,
+        _modalKeepAlive,
+      );
       return true;
     }
 
@@ -323,11 +468,16 @@ class _WebTabState extends State<WebTab> {
             ),
         ],
       ),
-      body: HotwireWebView(
+      body: HotwireVisitable(
         url: widget.url,
         session: _session,
         bridge: _bridge,
         onRouteRequest: _handleRouteRequest,
+        routeObserver: widget.routeObserver,
+        webViewOverride: widget.webViewOverride,
+        adapterOverride: widget.adapterOverride,
+        controllerOverride: widget.controllerOverride,
+        keepAlive: _mainKeepAlive,
       ),
     );
   }
@@ -364,11 +514,25 @@ class WebScreen extends StatelessWidget {
   final String url;
   final String title;
   final bool isModal;
+  final Session session;
+  final Bridge? bridge;
+  final RouteObserver<PageRoute<dynamic>>? routeObserver;
+  final Widget? webViewOverride;
+  final SessionWebViewAdapter? adapterOverride;
+  final Object? controllerOverride;
+  final InAppWebViewKeepAlive? keepAlive;
 
   const WebScreen({
     required this.url,
     required this.title,
+    required this.session,
     this.isModal = false,
+    this.bridge,
+    this.routeObserver,
+    this.webViewOverride,
+    this.adapterOverride,
+    this.controllerOverride,
+    this.keepAlive,
     super.key,
   });
 
@@ -379,15 +543,39 @@ class WebScreen extends StatelessWidget {
         title: Text(title),
         leading: isModal ? const CloseButton() : null,
       ),
-      body: HotwireWebView(url: url, session: Session()),
+      body: HotwireVisitable(
+        url: url,
+        session: session,
+        bridge: bridge,
+        routeObserver: routeObserver,
+        webViewOverride: webViewOverride,
+        adapterOverride: adapterOverride,
+        controllerOverride: controllerOverride,
+        keepAlive: keepAlive,
+      ),
     );
   }
 }
 
 class NumbersScreen extends StatelessWidget {
   final String baseUrl;
+  final Session modalSession;
+  final InAppWebViewKeepAlive modalKeepAlive;
+  final RouteObserver<PageRoute<dynamic>>? routeObserver;
+  final Widget? webViewOverride;
+  final SessionWebViewAdapter? adapterOverride;
+  final Object? controllerOverride;
 
-  const NumbersScreen({required this.baseUrl, super.key});
+  const NumbersScreen({
+    required this.baseUrl,
+    required this.modalSession,
+    required this.modalKeepAlive,
+    this.routeObserver,
+    this.webViewOverride,
+    this.adapterOverride,
+    this.controllerOverride,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -409,7 +597,13 @@ class NumbersScreen extends StatelessWidget {
                   builder: (_) => WebScreen(
                     url: url,
                     title: "Number $number",
+                    session: modalSession,
                     isModal: true,
+                    routeObserver: routeObserver,
+                    webViewOverride: webViewOverride,
+                    adapterOverride: adapterOverride,
+                    controllerOverride: controllerOverride,
+                    keepAlive: modalKeepAlive,
                   ),
                 ),
               );

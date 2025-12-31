@@ -61,4 +61,24 @@ abstract class BridgeComponent {
   bool reply(BridgeMessage message, Object data) {
     return replyWith(message.replacingData(data));
   }
+
+  Future<bool> replyWithAsync(BridgeMessage message) async {
+    return replyWith(message);
+  }
+
+  Future<bool> replyToAsync(String event) async {
+    return replyTo(event);
+  }
+
+  Future<bool> replyToJsonAsync(String event, String jsonData) async {
+    return replyToJson(event, jsonData);
+  }
+
+  Future<bool> replyToDataAsync(String event, Object data) async {
+    return replyToData(event, data);
+  }
+
+  Future<bool> replyAsync(BridgeMessage message, Object data) async {
+    return reply(message, data);
+  }
 }

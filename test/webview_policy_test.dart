@@ -3,6 +3,7 @@ import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 import 'package:hotwire_native_flutter/src/webview/policy/handlers/external_navigation_policy_handler.dart';
 import 'package:hotwire_native_flutter/src/webview/policy/handlers/new_window_policy_handler.dart';
 import 'package:hotwire_native_flutter/src/webview/policy/handlers/link_activated_policy_handler.dart';
+import 'package:hotwire_native_flutter/src/webview/policy/handlers/reload_policy_handler.dart';
 
 void main() {
   test('WebViewPolicyManager defaults to allow', () {
@@ -46,5 +47,17 @@ void main() {
       ),
     );
     expect(decision, WebViewPolicyDecision.allow);
+  });
+
+  test('ReloadPolicyHandler cancels reload navigation', () {
+    final handler = ReloadPolicyHandler();
+    final decision = handler.evaluate(
+      const WebViewPolicyRequest(
+        url: 'https://example.com',
+        isMainFrame: true,
+        navigationType: 'reload',
+      ),
+    );
+    expect(decision, WebViewPolicyDecision.cancel);
   });
 }

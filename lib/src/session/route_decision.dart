@@ -16,6 +16,8 @@ typedef RouteDecisionEvaluator =
       required bool initialized,
     });
 
+typedef StartLocationProvider = Uri? Function();
+
 RouteDecision defaultRouteDecision({
   required String location,
   required Map<String, dynamic> properties,
@@ -29,6 +31,78 @@ RouteDecision defaultRouteDecision({
     return RouteDecision.delegate;
   }
   return RouteDecision.navigate;
+}
+
+RouteDecisionEvaluator appNavigationRouteDecisionHandler(
+  StartLocationProvider startLocationProvider,
+) {
+  return ({
+    required String location,
+    required Map<String, dynamic> properties,
+    required bool initialized,
+  }) {
+    final startLocation = startLocationProvider();
+    if (startLocation == null) {
+      return null;
+    }
+    final locationUri = Uri.tryParse(location);
+    if (locationUri == null || !_isHttpScheme(locationUri.scheme)) {
+      return null;
+    }
+    if (locationUri.host == startLocation.host) {
+      return RouteDecision.navigate;
+    }
+    return null;
+  };
+}
+
+RouteDecisionEvaluator browserTabRouteDecisionHandler(
+  StartLocationProvider startLocationProvider,
+) {
+  return ({
+    required String location,
+    required Map<String, dynamic> properties,
+    required bool initialized,
+  }) {
+    final startLocation = startLocationProvider();
+    if (startLocation == null) {
+      return null;
+    }
+    final locationUri = Uri.tryParse(location);
+    if (locationUri == null || !_isHttpScheme(locationUri.scheme)) {
+      return null;
+    }
+    if (locationUri.host != startLocation.host) {
+      return RouteDecision.external;
+    }
+    return null;
+  };
+}
+
+RouteDecisionEvaluator systemNavigationRouteDecisionHandler(
+  StartLocationProvider startLocationProvider,
+) {
+  return ({
+    required String location,
+    required Map<String, dynamic> properties,
+    required bool initialized,
+  }) {
+    final startLocation = startLocationProvider();
+    if (startLocation == null) {
+      return null;
+    }
+    final locationUri = Uri.tryParse(location);
+    if (locationUri == null) {
+      return null;
+    }
+    if (!_isHttpScheme(locationUri.scheme)) {
+      return RouteDecision.external;
+    }
+    if (locationUri.host != startLocation.host) {
+      return RouteDecision.external;
+    }
+    return null;
+  };
 }
 
 class RouteDecisionManager {
@@ -58,4 +132,8 @@ class RouteDecisionManager {
       initialized: initialized,
     );
   }
+}
+
+bool _isHttpScheme(String scheme) {
+  return scheme == 'http' || scheme == 'https';
 }

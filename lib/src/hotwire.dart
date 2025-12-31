@@ -4,6 +4,7 @@ import 'webview/platform_hooks.dart';
 import 'webview/policy/handlers/external_navigation_policy_handler.dart';
 import 'webview/policy/handlers/link_activated_policy_handler.dart';
 import 'webview/policy/handlers/new_window_policy_handler.dart';
+import 'webview/policy/handlers/reload_policy_handler.dart';
 import 'webview/policy/webview_policy_manager.dart';
 
 typedef BridgeJsonDecoder = Map<String, dynamic> Function(dynamic data);
@@ -46,10 +47,15 @@ class HotwireConfig {
   onGeolocationPermissionRequest;
   Future<OfflineResponse?> Function(OfflineRequest request)?
   offlineRequestHandler;
+  Future<Uri?> Function(Uri location)? crossOriginRedirectResolver;
+
+  /// Optional start location for route decision handlers.
+  Uri? startLocation;
 
   /// WebView navigation policy manager.
   WebViewPolicyManager webViewPolicyManager = WebViewPolicyManager(
     handlers: [
+      ReloadPolicyHandler(),
       NewWindowPolicyHandler(),
       LinkActivatedPolicyHandler(),
       ExternalNavigationPolicyHandler(),
@@ -60,7 +66,13 @@ class HotwireConfig {
   void Function(Object controller)? webViewControllerConfigurator;
 
   /// Route decision chain for app navigation.
-  RouteDecisionManager routeDecisionManager = RouteDecisionManager();
+  RouteDecisionManager routeDecisionManager = RouteDecisionManager(
+    handlers: [
+      appNavigationRouteDecisionHandler(() => Hotwire().config.startLocation),
+      browserTabRouteDecisionHandler(() => Hotwire().config.startLocation),
+      systemNavigationRouteDecisionHandler(() => Hotwire().config.startLocation),
+    ],
+  );
 
   /// Builds the user agent string, optionally including bridge components.
   String buildUserAgent({

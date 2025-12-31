@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
+import 'package:hotwire_native_flutter/src/turbo/path_configuration_decoder.dart';
 
 void main() {
   test('PathConfigurationRule matches regex patterns', () {
@@ -130,6 +131,47 @@ void main() {
     expect(errors, isNotEmpty);
     expect(errors.first.type, PathConfigurationErrorType.downloadFailed);
   });
+
+  test('PathConfiguration loader uses cached data before download', () async {
+    final repository = _TrackingRepository()
+      ..cached = '{"settings": {"cached": true}, "rules": []}';
+    final loader = PathConfigurationLoader(repository: repository);
+
+    PathConfigurationDecoder? decoded;
+    final errors = <PathConfigurationError>[];
+    await loader.load(
+      sources: const [
+        PathConfigurationSource.server('https://example.com/config.json'),
+      ],
+      onLoaded: (decoder) => decoded = decoder,
+      onError: errors.add,
+    );
+
+    expect(decoded?.settings['cached'], true);
+    expect(repository.readCalled, isTrue);
+    expect(repository.downloadCalled, isTrue);
+    expect(errors.first.type, PathConfigurationErrorType.downloadFailed);
+  });
+
+  test('PathConfiguration loader caches downloaded data', () async {
+    final repository = _TrackingRepository()
+      ..downloaded = '{"settings": {"cached": false}, "rules": []}';
+    final loader = PathConfigurationLoader(repository: repository);
+
+    PathConfigurationDecoder? decoded;
+    await loader.load(
+      sources: const [
+        PathConfigurationSource.server('https://example.com/config.json'),
+      ],
+      onLoaded: (decoder) => decoded = decoder,
+      onError: (_) {},
+    );
+
+    expect(decoded?.settings['cached'], false);
+    expect(repository.downloadCalled, isTrue);
+    expect(repository.writeCalled, isTrue);
+    expect(repository.writtenData, repository.downloaded);
+  });
 }
 
 Future<void> _applySources(
@@ -174,5 +216,32 @@ class _FailingRepository extends PathConfigurationRepository {
   @override
   Future<String?> download(String url, {Map<String, String>? headers}) async {
     return null;
+  }
+}
+
+class _TrackingRepository extends PathConfigurationRepository {
+  String? cached;
+  String? downloaded;
+  String? writtenData;
+  bool readCalled = false;
+  bool downloadCalled = false;
+  bool writeCalled = false;
+
+  @override
+  Future<String?> readCached(String url) async {
+    readCalled = true;
+    return cached;
+  }
+
+  @override
+  Future<String?> download(String url, {Map<String, String>? headers}) async {
+    downloadCalled = true;
+    return downloaded;
+  }
+
+  @override
+  Future<void> writeCached(String url, String data) async {
+    writeCalled = true;
+    writtenData = data;
   }
 }

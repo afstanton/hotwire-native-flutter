@@ -15,6 +15,23 @@ void main() {
     expect(const VisitResponse(statusCode: 302).isSuccessful, isFalse);
   });
 
+  test('VisitResponse reports failure for non-2xx', () {
+    expect(const VisitResponse(statusCode: 301).isSuccessful, isFalse);
+    expect(const VisitResponse(statusCode: 404).isSuccessful, isFalse);
+  });
+
+  test('VisitResponse parses numeric strings in json', () {
+    final response = VisitResponse.fromJson({
+      'statusCode': '201',
+      'redirected': true,
+      'responseHTML': '<html></html>',
+    });
+
+    expect(response.statusCode, 201);
+    expect(response.redirected, isTrue);
+    expect(response.responseHTML, '<html></html>');
+  });
+
   test('VisitOptions parses from json string', () {
     final options = VisitOptions.fromJsonString('''
       {

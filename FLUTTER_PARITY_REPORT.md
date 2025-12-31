@@ -73,6 +73,7 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Snapshot cache / restore integration (basic hooks)
 - [x] Page invalidation + reload behavior
 - [x] Non-HTTP error redirect handling (delegate hook)
+- [x] Non-HTTP redirect verification (native fetch + cross-origin proposal parity)
 - [ ] Session delegate parity (complete list vs iOS/Android; remaining items are platform channel)
   - [x] Cross-origin redirect proposal callback
   - [ ] WebView process termination callback (platform channel needed)
@@ -81,15 +82,31 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Page load failed / errorRaised propagation
 - [x] Restoration identifiers tracked per visitable
 - [x] Session reset + cold boot behavior
+- [x] Turbo readiness handshake (turboIsReady/turboFailedToLoad) + pending visit queue
+
+### Navigation stack / visitable lifecycle
+
+- [x] HotwireVisitable widget (route-aware attach/detach + restore/caching hooks)
+- [x] Visitable abstraction activated/deactivated with shared WebView (iOS `Visitable`)
+- [x] WebView keep-alive support for sharing a session WebView
+- [x] Track topmost/active/previous visitable to restore on back navigation
+- [x] Restore visit on back to web view (restore action vs advance)
+- [x] Snapshot cache per visitable and restore integration with navigation stack
+- [x] Main vs modal session handling (shared modal session for modal stack)
+- [x] Refresh/reload requests from visitable surface to Session
+- [ ] Navigation stack routing parity (main vs modal session handling)
 
 ### WebView policy / routing
 
 - [x] External navigation policy (non-http schemes)
-- [ ] New window policy (platform channel or plugin support needed; handler exists)
+- [x] New window policy (handled via in-app webview create window callbacks)
 - [ ] Reload policy (platform channel needed)
 - [x] Link activated policy (basic)
 - [x] App navigation policy handler chain (basic manager)
 - [x] Modal presentation rules from path config (context + presentation)
+- [x] Propose visits when Turbo does not (target=_blank, cold-boot redirects)
+  - [x] target=_blank / new-window proposals routed to Session
+  - [x] cold-boot redirect proposals
 
 ### Errors
 
@@ -131,29 +148,82 @@ This document tracks feature parity between the Flutter library and the Android/
 - Minimal session logic implemented and tested.
 - Visit state modeling implemented and tested.
 - Platform hook placeholders added for auth/process/file/geolocation/offline events.
-- Minimal WebView widget using `webview_flutter` added to enable in-app navigation.
+- Minimal WebView widget using `flutter_inappwebview` added to enable in-app navigation.
 - Turbo/Bridge JS injected into WebView and wired to Session/Bridge message flow.
 - Session now supports `visitWithOptions`, `restoreOrVisit`, snapshot cache hooks via a WebView adapter (no full lifecycle yet).
 - Demo app updated to match native demo layout and routing.
+- Navigation stack helper added for main/modal decisioning (not yet wired into app navigation).
+- Demo app uses NavigationStack instructions for modal vs main routing decisions.
+
+## Reference Test Coverage vs Flutter
+
+### Reference tests (Android/iOS) cover
+
+- Bridge: message encoding/decoding, internal message mapping, component lifecycle, delegate routing, async APIs, JavaScript evaluation hooks, user agent composition.
+- Turbo session: cold boot visit lifecycle, delegate callbacks, Turbo error mapping (HTTP/page load), JS bridge wiring.
+- Path configuration: loader, parsing, modal styles, historical locations, repository caching behavior.
+- Routing/policy: route decision handlers (app/system/safari/browser), webview policy handlers (external, new window, reload, link activated).
+- Navigation stack: navigation hierarchy controller / navigator host + routing rules.
+- Errors: HTTP/web/SSL error models.
+- File handling: file chooser, camera capture, URI helper, file provider.
+- Visit response parsing/flags.
+
+### Flutter tests currently cover
+
+- Bridge message encoding/decoding, component lifecycle, dispatcher and factories.
+- User agent string composition for Hotwire components.
+- Turbo JS/bridge JS injection shims.
+- WebView policy handlers (external, new window, link activated) and policy manager basics.
+- Session lifecycle (visit proposals, redirects, errors, Turbo readiness, snapshot cache, restoration identifiers).
+- Path configuration parsing, rules, loader errors, tabs/modal parsing, historical locations.
+- Visit models (actions, options, response).
+- SSL error mapping model.
+- Visitable lifecycle + controller helpers.
+
+### Test gaps to close (parity)
+
+- [ ] Route decision handlers parity (app/system/browser/safari-style routing decisions).
+- [x] Route decision handlers parity (app/system/browser/safari-style routing decisions).
+- [ ] Navigation stack behavior parity (navigation hierarchy / navigator host rules).
+- [ ] WebView policy reload handler parity.
+- [x] WebView policy reload handler parity.
+- [x] Turbo error mapping parity (HTTP error vs page load vs web error types).
+- [x] Visit response error handling parity (non-2xx, redirect behaviors).
+- [x] Path configuration repository caching behavior (remote caching + invalidation).
+- [ ] Bridge async API parity (timing/queueing behavior).
+- [x] Bridge async API parity (timing/queueing behavior).
+- [ ] File chooser / camera / URI helper behaviors (platform channel when available).
+- [ ] Geolocation permission handling (platform channel when available).
 
 ## Next Steps (No platform-specific code yet)
 
-1) Session delegate parity (non-platform hooks)
-   - Determine cross-origin redirect proposal behavior in Flutter.
-   - Document platform-channel-dependent delegate hooks (auth challenge, render process termination).
+1) Turbo readiness handshake + pending visit queue
+   - Track Turbo ready/failed state from JS.
+   - Queue visits during cold boot and replay once ready.
 
-2) Path configuration parity polish
-   - Support tabs property parsing if used by native demos.
+2) Visitable lifecycle foundation
+   - Introduce Visitable abstraction + activation/deactivation hooks tied to navigation.
+   - Attach/detach visitables to Session.
 
-3) Demo app parity
-   - Wire demo bridge components (menu, form, overflow menu).
-   - Add toolbar progress indicator for form submission if used by native demos.
+3) Restore & snapshot integration
+   - Restore on back navigation (restore vs advance).
+   - Cache snapshots per visitable; restore identifiers on reattach.
+
+4) Navigation stack parity
+   - Track topmost/active/previous visitables.
+   - Main vs modal stack handling (dismiss modal on proposal when needed).
+
+5) Turbo visit proposal fallback
+   - Propose visits when Turbo doesn’t (target=_blank, cold-boot redirects).
+
+6) Non-HTTP redirect verification
+   - Native fetch to confirm cross-origin redirect before proposing.
+   - (May need platform channel or HTTP client policy.)
 
 ## Platform Channel Backlog
 
 - WebView default user agent integration
 - WebView debugging toggle
-- New window policy support
 - Reload policy
 - WebView process termination callback
 - HTTP auth challenge handling

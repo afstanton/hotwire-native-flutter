@@ -185,4 +185,35 @@ void main() {
     expect(replied?.event, 'connected');
     expect(replied?.id, '99');
   });
+
+  test('BridgeComponent async reply returns false when missing message', () async {
+    final component = TestComponent();
+
+    final didReply = await component.replyToAsync('missing');
+
+    expect(didReply, isFalse);
+  });
+
+  test('BridgeComponent async reply uses delegate', () async {
+    final bridge = Bridge();
+    final component = TestComponent();
+    BridgeMessage? replied;
+    bridge.replyHandler = (message) {
+      replied = message;
+    };
+    bridge.register(component);
+    bridge.activate();
+
+    bridge.handleMessage({
+      'id': '1',
+      'component': 'test',
+      'event': 'connected',
+      'data': {'status': 'ok'},
+    });
+
+    final didReply = await component.replyToAsync('connected');
+
+    expect(didReply, isTrue);
+    expect(replied?.event, 'connected');
+  });
 }

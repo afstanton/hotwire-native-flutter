@@ -242,6 +242,11 @@ void main() {
   test('Session forwards non-http failures for redirect handling', () {
     final delegate = SessionDelegateSpy();
     final session = Session(delegate: delegate);
+    Hotwire().config.crossOriginRedirectResolver =
+        (_) async => null;
+    addTearDown(() {
+      Hotwire().config.crossOriginRedirectResolver = null;
+    });
 
     session.handleTurboMessage('visitRequestFailedWithNonHttpStatusCode', {
       'location': 'https://example.com/redirect',
@@ -251,6 +256,25 @@ void main() {
     expect(delegate.nonHttpFailures, 1);
     expect(delegate.lastNonHttpLocation, 'https://example.com/redirect');
     expect(delegate.lastNonHttpIdentifier, 'visit-1');
+  });
+
+  test('Session proposes cross-origin redirects after verification', () async {
+    final delegate = SessionDelegateSpy();
+    final session = Session(delegate: delegate);
+    Hotwire().config.crossOriginRedirectResolver =
+        (location) async => Uri.parse('https://other.example.com/redirect');
+    addTearDown(() {
+      Hotwire().config.crossOriginRedirectResolver = null;
+    });
+
+    session.handleTurboMessage('visitRequestFailedWithNonHttpStatusCode', {
+      'location': 'https://example.com/redirect',
+      'identifier': 'visit-1',
+    });
+
+    await Future<void>.delayed(Duration.zero);
+
+    expect(delegate.lastCrossOriginLocation, 'https://other.example.com/redirect');
   });
 
   test('Session compares locations with query string presentation', () {
@@ -274,6 +298,7 @@ void main() {
     session.attachWebView(adapter);
 
     session.markInitialized();
+    session.handleTurboMessage('turboIsReady', {'ready': true});
     await session.visitWithOptions(
       'https://example.com/items',
       options: const VisitOptions(action: VisitAction.replace),
@@ -295,6 +320,27 @@ void main() {
 
     expect(adapter.lastLoadedUrl, 'https://example.com/start');
     expect(adapter.lastJavaScript, isNull);
+  });
+
+  test('Session defers JS visits until Turbo is ready', () async {
+    final session = Session();
+    final adapter = FakeWebViewAdapter();
+    session.attachWebView(adapter);
+    session.markInitialized();
+
+    await session.visitWithOptions(
+      'https://example.com/items',
+      options: const VisitOptions(action: VisitAction.advance),
+    );
+
+    expect(adapter.lastJavaScript, isNull);
+
+    session.handleTurboMessage('turboIsReady', {'ready': true});
+
+    expect(
+      adapter.lastJavaScript,
+      contains('visitLocationWithOptionsAndRestorationIdentifier'),
+    );
   });
 
   test('Session snapshot cache only runs when initialized', () async {
@@ -446,6 +492,7 @@ void main() {
     final adapter = FakeWebViewAdapter();
     session.attachWebView(adapter);
     session.markInitialized();
+    session.handleTurboMessage('turboIsReady', {'ready': true});
 
     final visitable = TestVisitable('visitable-1');
     session.storeRestorationIdentifierForVisitable(visitable, 'rest-1');
@@ -457,6 +504,38 @@ void main() {
     );
 
     expect(adapter.lastJavaScript, contains('rest-1'));
+  });
+
+  test('Session tracks topmost and previous visitables', () {
+    final session = Session();
+    final first = TestVisitable('visitable-1');
+    final second = TestVisitable('visitable-2');
+
+    session.visitableDidAppear(first);
+    expect(session.topmostVisitableIdentifier, 'visitable-1');
+    expect(session.previousVisitableIdentifier, isNull);
+
+    session.visitableDidAppear(second);
+    expect(session.topmostVisitableIdentifier, 'visitable-2');
+    expect(session.previousVisitableIdentifier, 'visitable-1');
+
+    session.visitableDidDisappear(second);
+    expect(session.topmostVisitableIdentifier, 'visitable-1');
+  });
+
+  test('Session routes with navigation stack when configured', () {
+    Hotwire().config.startLocation = Uri.parse('https://example.com/home');
+    final session = Session();
+
+    final instruction = session.routeWithNavigationStack(
+      'https://example.com/features',
+    );
+
+    expect(instruction, isNotNull);
+    expect(instruction?.action, NavigationAction.push);
+    expect(instruction?.targetStack, NavigationStackType.main);
+
+    Hotwire().config.startLocation = null;
   });
 }
 

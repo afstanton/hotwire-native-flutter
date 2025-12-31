@@ -1,6 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 
 import '../hotwire.dart';
+import '../navigation/navigation_stack.dart';
 import '../turbo/path_properties.dart';
 import '../turbo/errors/visit_error.dart';
 import '../turbo/visit/visit_action.dart';
@@ -63,19 +67,33 @@ class Session {
   SessionDelegate? delegate;
   final TurboEventTracker _tracker = TurboEventTracker();
   final RouteDecisionHandler _routeDecisionHandler;
+  final NavigationStack? _navigationStack;
   bool _initialized = false;
+  bool _turboReady = false;
   String? _lastVisitedLocation;
   SessionWebViewAdapter? _adapter;
   final Map<String, String> _restorationIdentifiers = {};
   final Map<String, String> _visitableRestorationIdentifiers = {};
   String? _currentVisitableId;
+  String? _topmostVisitableId;
+  String? _previousVisitableId;
+  _PendingVisit? _pendingVisit;
   void Function(VisitError error, void Function() retry)? onError;
 
   Session({
     SessionDelegate? delegate,
     RouteDecisionHandler? routeDecisionHandler,
+    NavigationStack? navigationStack,
   }) : delegate = delegate,
-       _routeDecisionHandler = routeDecisionHandler ?? defaultRouteDecision;
+       _routeDecisionHandler = routeDecisionHandler ?? defaultRouteDecision,
+       _navigationStack =
+           navigationStack ??
+           (Hotwire().config.startLocation == null
+               ? null
+               : NavigationStack(
+                   startLocation:
+                       Hotwire().config.startLocation?.toString(),
+                 ));
 
   bool get isInitialized => _initialized;
 
@@ -86,11 +104,18 @@ class Session {
 
   void reset() {
     _initialized = false;
+    _turboReady = false;
     _lastVisitedLocation = null;
     _restorationIdentifiers.clear();
     _visitableRestorationIdentifiers.clear();
     _currentVisitableId = null;
+    _topmostVisitableId = null;
+    _previousVisitableId = null;
+    _pendingVisit = null;
     _tracker.reset();
+    _navigationStack?.reset(
+      startLocation: Hotwire().config.startLocation?.toString(),
+    );
   }
 
   void attachWebView(SessionWebViewAdapter adapter) {
@@ -165,6 +190,13 @@ class Session {
             location,
             identifier,
           );
+          _resolveCrossOriginRedirect(location, identifier);
+        }
+        break;
+      case 'turboIsReady':
+        final ready = data['ready'];
+        if (ready is bool) {
+          _setTurboReady(ready);
         }
         break;
       case 'formSubmissionStarted':
@@ -236,15 +268,19 @@ class Session {
       await visit(location);
       return;
     }
+    if (!_turboReady) {
+      _pendingVisit = _PendingVisit(
+        location: location,
+        options: options,
+        restorationIdentifier: restorationIdentifier,
+      );
+      return;
+    }
 
-    final optionsJson = json.encode({'action': options.action.name});
-    final restoration = json.encode(
-      restorationIdentifier ?? _tracker.lastRestorationIdentifier ?? '',
-    );
-    final locationJson = json.encode(location);
-
-    await _adapter?.runJavaScript(
-      "window.turboNative.visitLocationWithOptionsAndRestorationIdentifier($locationJson, $optionsJson, $restoration)",
+    await _runVisitWithOptions(
+      location,
+      options: options,
+      restorationIdentifier: restorationIdentifier,
     );
   }
 
@@ -292,6 +328,24 @@ class Session {
       location: location,
       properties: properties,
       initialized: _initialized,
+    );
+  }
+
+  NavigationInstruction? routeWithNavigationStack(
+    String location, {
+    VisitOptions? options,
+    Map<String, dynamic>? properties,
+  }) {
+    final stack = _navigationStack;
+    if (stack == null) {
+      return null;
+    }
+    final resolvedProperties =
+        properties ?? Hotwire().config.pathConfiguration.properties(location);
+    return stack.route(
+      location: location,
+      properties: resolvedProperties,
+      options: options,
     );
   }
 
@@ -355,6 +409,22 @@ class Session {
       _currentVisitableId = null;
     }
   }
+
+  void visitableDidAppear(SessionVisitable visitable) {
+    if (_topmostVisitableId != visitable.visitableIdentifier) {
+      _previousVisitableId = _topmostVisitableId;
+      _topmostVisitableId = visitable.visitableIdentifier;
+    }
+  }
+
+  void visitableDidDisappear(SessionVisitable visitable) {
+    if (_topmostVisitableId == visitable.visitableIdentifier) {
+      _topmostVisitableId = _previousVisitableId;
+    }
+  }
+
+  String? get topmostVisitableIdentifier => _topmostVisitableId;
+  String? get previousVisitableIdentifier => _previousVisitableId;
 
   String? restorationIdentifierForVisitable(SessionVisitable visitable) {
     return _visitableRestorationIdentifiers[visitable.visitableIdentifier];
@@ -456,6 +526,40 @@ class Session {
     }
   }
 
+  void _setTurboReady(bool ready) {
+    _turboReady = ready;
+    if (!ready) {
+      reset();
+      return;
+    }
+
+    final pending = _pendingVisit;
+    if (pending != null) {
+      _pendingVisit = null;
+      _runVisitWithOptions(
+        pending.location,
+        options: pending.options,
+        restorationIdentifier: pending.restorationIdentifier,
+      );
+    }
+  }
+
+  Future<void> _runVisitWithOptions(
+    String location, {
+    required VisitOptions options,
+    String? restorationIdentifier,
+  }) async {
+    final optionsJson = json.encode({'action': options.action.name});
+    final restoration = json.encode(
+      restorationIdentifier ?? _tracker.lastRestorationIdentifier ?? '',
+    );
+    final locationJson = json.encode(location);
+
+    await _adapter?.runJavaScript(
+      "window.turboNative.visitLocationWithOptionsAndRestorationIdentifier($locationJson, $optionsJson, $restoration)",
+    );
+  }
+
   void _storeRestorationIdentifierForCurrentVisitable(
     String restorationIdentifier,
   ) {
@@ -465,4 +569,84 @@ class Session {
     }
     _visitableRestorationIdentifiers[visitableId] = restorationIdentifier;
   }
+
+  Future<void> _resolveCrossOriginRedirect(
+    String location,
+    String identifier,
+  ) async {
+    final uri = Uri.tryParse(location);
+    if (uri == null) {
+      _emitError(TurboError.http(0));
+      return;
+    }
+
+    final resolver =
+        Hotwire().config.crossOriginRedirectResolver ??
+        _defaultRedirectResolver;
+    Uri? redirect;
+    try {
+      redirect = await resolver(uri);
+    } catch (_) {
+      _emitError(TurboError.http(0));
+      return;
+    }
+
+    if (redirect == null) {
+      _emitError(TurboError.http(0));
+      return;
+    }
+
+    if (_isCrossOriginRedirect(uri, redirect)) {
+      delegate?.sessionDidProposeVisitToCrossOriginRedirect(
+        this,
+        redirect.toString(),
+      );
+      return;
+    }
+
+    _emitError(TurboError.http(0));
+  }
+
+  static bool _isCrossOriginRedirect(Uri origin, Uri redirect) {
+    if (!_isHttpScheme(origin.scheme) || !_isHttpScheme(redirect.scheme)) {
+      return false;
+    }
+    return origin.origin != redirect.origin;
+  }
+
+  static Future<Uri?> _defaultRedirectResolver(Uri location) async {
+    if (kIsWeb) {
+      return null;
+    }
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(location);
+      request.followRedirects = false;
+      final response = await request.close();
+      if (response.isRedirect) {
+        final redirectValue = response.headers.value(HttpHeaders.locationHeader);
+        if (redirectValue != null) {
+          final redirect = Uri.tryParse(redirectValue);
+          if (redirect != null) {
+            return location.resolveUri(redirect);
+          }
+        }
+      }
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
+}
+
+class _PendingVisit {
+  final String location;
+  final VisitOptions options;
+  final String? restorationIdentifier;
+
+  const _PendingVisit({
+    required this.location,
+    required this.options,
+    required this.restorationIdentifier,
+  });
 }

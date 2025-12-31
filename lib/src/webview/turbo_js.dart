@@ -10,8 +10,10 @@ const String turboJs = r'''
     registerAdapter() {
       if (window.Turbo) {
         Turbo.registerAdapter(this)
+        this.postMessage("turboIsReady", { ready: true })
       } else if (window.Turbolinks) {
         Turbolinks.controller.adapter = this
+        this.postMessage("turboIsReady", { ready: true })
       } else {
         throw new Error("Failed to register the TurboNative adapter")
       }
@@ -30,6 +32,7 @@ const String turboJs = r'''
     }
 
     pageLoadFailed() {
+      this.postMessage("turboIsReady", { ready: false })
       this.postMessage("pageLoadFailed")
     }
 
