@@ -11,6 +11,8 @@ class Bridge implements BridgeDelegate {
   final Map<String, BridgeComponentFactory> _factories = {};
 
   BridgeMessageHandler? messageHandler;
+  void Function(BridgeMessage originalMessage, Map<String, dynamic> data)?
+  replyHandler;
 
   void register(BridgeComponent component) {
     component.delegate = this;
@@ -69,5 +71,7 @@ class Bridge implements BridgeDelegate {
   }
 
   @override
-  void replyWith(BridgeMessage originalMessage, Map<String, dynamic> data) {}
+  void replyWith(BridgeMessage originalMessage, Map<String, dynamic> data) {
+    replyHandler?.call(originalMessage, data);
+  }
 }
