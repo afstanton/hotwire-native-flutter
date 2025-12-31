@@ -68,15 +68,15 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Visit proposal handling from Turbo events
 - [x] Route decision handler (navigate/delegate/external)
 - [x] Query string presentation restore logic
-- [ ] WebView-backed session (cold boot vs JS visits)
-- [ ] Snapshot cache / restore integration
-- [ ] Page invalidation + reload behavior
+- [x] WebView-backed session (cold boot vs JS visits)
+- [x] Snapshot cache / restore integration (basic hooks)
+- [x] Page invalidation + reload behavior
 - [ ] Non-HTTP error redirect handling (cross-origin redirect checks)
 - [ ] Session delegate parity (complete list vs iOS/Android)
 - [ ] Form submission lifecycle: start/finish hooks toggle progress UI
 - [ ] Page load failed / errorRaised propagation
 - [ ] Restoration identifiers tracked per visitable
-- [ ] Session reset + cold boot behavior
+- [x] Session reset + cold boot behavior
 
 ### WebView policy / routing
 

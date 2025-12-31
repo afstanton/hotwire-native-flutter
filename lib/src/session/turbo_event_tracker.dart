@@ -47,6 +47,14 @@ class TurboEventTracker {
   String? get lastFormSubmissionLocation => _lastFormSubmissionLocation;
   bool get formSubmissionInProgress => _formSubmissionInProgress;
 
+  void reset() {
+    _visits.clear();
+    _currentVisitIdentifier = null;
+    _lastRestorationIdentifier = null;
+    _lastFormSubmissionLocation = null;
+    _formSubmissionInProgress = false;
+  }
+
   TurboEventOutcome handle(String name, Map<String, dynamic> data) {
     switch (name) {
       case 'visitProposed':

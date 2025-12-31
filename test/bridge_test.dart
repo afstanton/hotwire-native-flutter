@@ -37,6 +37,18 @@ void main() {
     expect(replaced.jsonData, '{"wrapped":{"value":1}}');
   });
 
+  test('BridgeMessage accepts map data payloads', () {
+    final message = BridgeMessage.fromMap({
+      'id': '1',
+      'component': 'test',
+      'event': 'connect',
+      'data': {'title': 'Hello'},
+    });
+
+    final data = message.data<Map<String, dynamic>>();
+    expect(data?['title'], 'Hello');
+  });
+
   test('Bridge dispatches to registered components', () {
     final bridge = Bridge();
     final component = TestComponent();

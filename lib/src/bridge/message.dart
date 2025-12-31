@@ -36,12 +36,22 @@ class BridgeMessage {
           )
         : null;
 
+    String jsonData;
+    final dataValue = map['data'];
+    if (dataValue is String) {
+      jsonData = dataValue;
+    } else if (dataValue != null) {
+      jsonData = json.encode(dataValue);
+    } else {
+      jsonData = map['jsonData']?.toString() ?? '{}';
+    }
+
     return BridgeMessage(
       id: map['id']?.toString() ?? '',
       component: map['component']?.toString() ?? '',
       event: map['event']?.toString() ?? '',
       metadata: metadata,
-      jsonData: map['data']?.toString() ?? map['jsonData']?.toString() ?? '{}',
+      jsonData: jsonData,
     );
   }
 

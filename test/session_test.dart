@@ -36,6 +36,7 @@ class FakeWebViewAdapter implements SessionWebViewAdapter {
   String? lastLoadedUrl;
   String? lastJavaScript;
   int reloadCount = 0;
+  int javaScriptCalls = 0;
 
   @override
   Future<void> load(String url) async {
@@ -49,6 +50,7 @@ class FakeWebViewAdapter implements SessionWebViewAdapter {
 
   @override
   Future<void> runJavaScript(String javaScript) async {
+    javaScriptCalls += 1;
     lastJavaScript = javaScript;
   }
 }
@@ -139,6 +141,75 @@ void main() {
 
     expect(adapter.lastLoadedUrl, 'https://example.com/start');
     expect(adapter.lastJavaScript, isNull);
+  });
+
+  test('Session snapshot cache only runs when initialized', () async {
+    final session = Session();
+    final adapter = FakeWebViewAdapter();
+    session.attachWebView(adapter);
+
+    await session.cacheSnapshot();
+    expect(adapter.javaScriptCalls, 0);
+
+    session.markInitialized();
+    await session.cacheSnapshot();
+    expect(adapter.javaScriptCalls, 1);
+    expect(adapter.lastJavaScript, contains('cacheSnapshot'));
+  });
+
+  test('Session restoreOrVisit uses restore when matching location', () async {
+    final session = Session();
+    final adapter = FakeWebViewAdapter();
+    session.attachWebView(adapter);
+
+    session.markInitialized();
+    session.recordVisitLocation('https://example.com/items?one=1');
+
+    await session.restoreOrVisit('https://example.com/items?two=2');
+
+    expect(adapter.lastLoadedUrl, 'https://example.com/items?two=2');
+    expect(
+      adapter.lastJavaScript,
+      isNull,
+    );
+  });
+
+  test('Session pageInvalidated triggers reload when initialized', () async {
+    final session = Session();
+    final adapter = FakeWebViewAdapter();
+    session.attachWebView(adapter);
+    session.markInitialized();
+
+    session.handleTurboMessage('pageInvalidated', {});
+
+    expect(adapter.reloadCount, 1);
+  });
+
+  test('Session reset clears initialization state', () {
+    final session = Session();
+    session.markInitialized();
+    session.recordVisitLocation('https://example.com/items');
+
+    session.reset();
+
+    expect(session.isInitialized, isFalse);
+    expect(
+      session.shouldRestore(
+        nextLocation: 'https://example.com/items',
+        properties: const {},
+      ),
+      isFalse,
+    );
+  });
+
+  test('Session stores restoration identifier on visit completion', () {
+    final session = Session();
+    session.handleTurboMessage('visitCompleted', {
+      'identifier': 'visit-1',
+      'restorationIdentifier': 'rest-1',
+    });
+
+    expect(session.restorationIdentifierFor('visit-1'), 'rest-1');
   });
 }
 

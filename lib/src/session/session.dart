@@ -32,6 +32,7 @@ class Session {
   bool _initialized = false;
   String? _lastVisitedLocation;
   SessionWebViewAdapter? _adapter;
+  final Map<String, String> _restorationIdentifiers = {};
 
   Session({
     SessionDelegate? delegate,
@@ -44,6 +45,13 @@ class Session {
   void markInitialized() {
     _initialized = true;
     delegate?.sessionDidLoadWebView(this);
+  }
+
+  void reset() {
+    _initialized = false;
+    _lastVisitedLocation = null;
+    _restorationIdentifiers.clear();
+    _tracker.reset();
   }
 
   void attachWebView(SessionWebViewAdapter adapter) {
@@ -69,6 +77,13 @@ class Session {
     }
 
     switch (name) {
+      case 'visitCompleted':
+        final identifier = data['identifier'];
+        final restorationIdentifier = data['restorationIdentifier'];
+        if (identifier is String && restorationIdentifier is String) {
+          _restorationIdentifiers[identifier] = restorationIdentifier;
+        }
+        break;
       case 'formSubmissionStarted':
         delegate?.sessionDidStartFormSubmission(this);
         break;
@@ -77,6 +92,9 @@ class Session {
         break;
       case 'pageInvalidated':
         delegate?.sessionDidInvalidatePage(this);
+        if (_initialized) {
+          reload();
+        }
         break;
       case 'visitRequestStarted':
         delegate?.sessionDidStartRequest(this);
@@ -122,6 +140,7 @@ class Session {
       await visitWithOptions(
         location,
         options: const VisitOptions(action: VisitAction.restore),
+        restorationIdentifier: _tracker.lastRestorationIdentifier,
       );
       return;
     }
@@ -157,6 +176,10 @@ class Session {
 
   void recordVisitLocation(String location) {
     _lastVisitedLocation = location;
+  }
+
+  String? restorationIdentifierFor(String visitIdentifier) {
+    return _restorationIdentifiers[visitIdentifier];
   }
 
   bool shouldRestore({
