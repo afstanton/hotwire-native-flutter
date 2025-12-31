@@ -7,8 +7,12 @@ class SessionDelegateSpy extends SessionDelegate {
   int proposedVisits = 0;
   int startRequests = 0;
   int finishRequests = 0;
-  String? lastError;
+  int nonHttpFailures = 0;
+  int retryCallbacks = 0;
+  VisitError? lastError;
   VisitProposal? lastProposal;
+  String? lastNonHttpLocation;
+  String? lastNonHttpIdentifier;
 
   @override
   void sessionDidProposeVisit(Session session, VisitProposal proposal) {
@@ -27,8 +31,29 @@ class SessionDelegateSpy extends SessionDelegate {
   }
 
   @override
-  void sessionDidFailRequest(Session session, String errorMessage) {
-    lastError = errorMessage;
+  void sessionDidFailRequest(Session session, VisitError error) {
+    lastError = error;
+  }
+
+  @override
+  void sessionDidFailRequestWithRetry(
+    Session session,
+    VisitError error,
+    void Function() retry,
+  ) {
+    retryCallbacks += 1;
+    retry();
+  }
+
+  @override
+  void sessionDidFailRequestWithNonHttpStatus(
+    Session session,
+    String location,
+    String identifier,
+  ) {
+    nonHttpFailures += 1;
+    lastNonHttpLocation = location;
+    lastNonHttpIdentifier = identifier;
   }
 }
 
@@ -86,6 +111,9 @@ void main() {
   test('Session reports request lifecycle and errors', () {
     final delegate = SessionDelegateSpy();
     final session = Session(delegate: delegate);
+    final adapter = FakeWebViewAdapter();
+    session.attachWebView(adapter);
+    session.markInitialized();
 
     session.handleTurboMessage('visitRequestStarted', {'identifier': '1'});
     session.handleTurboMessage('visitRequestFinished', {'identifier': '1'});
@@ -96,7 +124,64 @@ void main() {
 
     expect(delegate.startRequests, 1);
     expect(delegate.finishRequests, 1);
-    expect(delegate.lastError, 'Visit Failed: 500');
+    expect(delegate.lastError?.description, 'There was an HTTP error (500).');
+    expect(delegate.retryCallbacks, 1);
+    expect(adapter.reloadCount, 1);
+  });
+
+  test('RouteDecisionManager uses first matching handler', () {
+    final manager = RouteDecisionManager(
+      handlers: [
+        ({
+          required String location,
+          required Map<String, dynamic> properties,
+          required bool initialized,
+        }) => location.contains('external') ? RouteDecision.external : null,
+      ],
+    );
+
+    final decision = manager.decide(
+      location: 'https://example.com/external',
+      properties: const {},
+      initialized: false,
+    );
+
+    expect(decision, RouteDecision.external);
+  });
+
+  test('Session forwards page load failures and errors', () {
+    final delegate = SessionDelegateSpy();
+    final session = Session(delegate: delegate);
+    final adapter = FakeWebViewAdapter();
+    session.attachWebView(adapter);
+    session.markInitialized();
+
+    session.handleTurboMessage('pageLoadFailed', {});
+    expect(
+      delegate.lastError?.description,
+      'The page could not be loaded due to a configuration error.',
+    );
+    expect(delegate.retryCallbacks, 1);
+    expect(adapter.reloadCount, 1);
+
+    session.handleTurboMessage('errorRaised', {'error': 'Boom'});
+    expect(delegate.lastError?.description, 'Boom');
+    expect(delegate.retryCallbacks, 2);
+    expect(adapter.reloadCount, 2);
+  });
+
+  test('Session forwards non-http failures for redirect handling', () {
+    final delegate = SessionDelegateSpy();
+    final session = Session(delegate: delegate);
+
+    session.handleTurboMessage('visitRequestFailedWithNonHttpStatusCode', {
+      'location': 'https://example.com/redirect',
+      'identifier': 'visit-1',
+    });
+
+    expect(delegate.nonHttpFailures, 1);
+    expect(delegate.lastNonHttpLocation, 'https://example.com/redirect');
+    expect(delegate.lastNonHttpIdentifier, 'visit-1');
   });
 
   test('Session compares locations with query string presentation', () {
@@ -168,10 +253,7 @@ void main() {
     await session.restoreOrVisit('https://example.com/items?two=2');
 
     expect(adapter.lastLoadedUrl, 'https://example.com/items?two=2');
-    expect(
-      adapter.lastJavaScript,
-      isNull,
-    );
+    expect(adapter.lastJavaScript, isNull);
   });
 
   test('Session pageInvalidated triggers reload when initialized', () async {

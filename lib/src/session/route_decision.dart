@@ -9,6 +9,13 @@ typedef RouteDecisionHandler =
       required bool initialized,
     });
 
+typedef RouteDecisionEvaluator =
+    RouteDecision? Function({
+      required String location,
+      required Map<String, dynamic> properties,
+      required bool initialized,
+    });
+
 RouteDecision defaultRouteDecision({
   required String location,
   required Map<String, dynamic> properties,
@@ -23,4 +30,33 @@ RouteDecision defaultRouteDecision({
   }
 
   return RouteDecision.navigate;
+}
+
+class RouteDecisionManager {
+  final List<RouteDecisionEvaluator> handlers;
+
+  RouteDecisionManager({List<RouteDecisionEvaluator>? handlers})
+    : handlers = handlers ?? [];
+
+  RouteDecision decide({
+    required String location,
+    required Map<String, dynamic> properties,
+    required bool initialized,
+  }) {
+    for (final handler in handlers) {
+      final decision = handler(
+        location: location,
+        properties: properties,
+        initialized: initialized,
+      );
+      if (decision != null) {
+        return decision;
+      }
+    }
+    return defaultRouteDecision(
+      location: location,
+      properties: properties,
+      initialized: initialized,
+    );
+  }
 }

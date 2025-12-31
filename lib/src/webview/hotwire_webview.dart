@@ -8,7 +8,10 @@ import '../bridge/message.dart';
 import '../hotwire.dart';
 import '../session/route_decision.dart';
 import '../session/session.dart';
+import '../turbo/errors/visit_error.dart';
 import 'bridge_js.dart';
+import 'policy/webview_policy_decision.dart';
+import 'policy/webview_policy_request.dart';
 import 'turbo_js.dart';
 
 typedef HotwireRouteRequestCallback =
@@ -40,6 +43,9 @@ class _HotwireWebViewState extends State<HotwireWebView> {
   late final Bridge _bridge;
   late final _WebViewAdapter _adapter;
   bool _isLoading = true;
+  VisitError? _error;
+  void Function()? _retry;
+  void Function(VisitError error, void Function() retry)? _previousErrorHandler;
 
   @override
   void initState() {
@@ -82,9 +88,26 @@ class _HotwireWebViewState extends State<HotwireWebView> {
       ..loadRequest(Uri.parse(widget.url));
     _adapter = _WebViewAdapter(controller: _controller);
     widget.session.attachWebView(_adapter);
+    _previousErrorHandler = widget.session.onError;
+    widget.session.onError = _handleSessionError;
   }
 
   NavigationDecision _handleNavigation(NavigationRequest request) {
+    final policyDecision = Hotwire().config.webViewPolicyManager.decide(
+      WebViewPolicyRequest(
+        url: request.url,
+        isMainFrame: request.isMainFrame,
+        navigationType: request.isMainFrame ? 'link' : null,
+      ),
+    );
+    if (policyDecision == WebViewPolicyDecision.external) {
+      widget.onExternalNavigation?.call(request.url);
+      return NavigationDecision.prevent;
+    }
+    if (policyDecision == WebViewPolicyDecision.cancel) {
+      return NavigationDecision.prevent;
+    }
+
     final location = request.url;
     final properties = Hotwire().config.pathConfiguration.properties(location);
     final decision = widget.session.decideNavigation(location);
@@ -145,6 +168,7 @@ class _HotwireWebViewState extends State<HotwireWebView> {
       children: [
         WebViewWidget(controller: _controller),
         if (_isLoading) const Center(child: CircularProgressIndicator()),
+        if (_error != null) _buildErrorView(),
       ],
     );
   }
@@ -152,7 +176,61 @@ class _HotwireWebViewState extends State<HotwireWebView> {
   @override
   void dispose() {
     widget.session.detachWebView(_adapter);
+    if (widget.session.onError == _handleSessionError) {
+      widget.session.onError = _previousErrorHandler;
+    }
     super.dispose();
+  }
+
+  void _handleSessionError(VisitError error, void Function() retry) {
+    _previousErrorHandler?.call(error, retry);
+    if (mounted) {
+      setState(() {
+        _error = error;
+        _retry = retry;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Widget _buildErrorView() {
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              "Page Load Failed",
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                _error?.description ?? '',
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                final retry = _retry;
+                if (mounted) {
+                  setState(() {
+                    _error = null;
+                    _isLoading = true;
+                  });
+                }
+                retry?.call();
+              },
+              child: const Text("Retry"),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

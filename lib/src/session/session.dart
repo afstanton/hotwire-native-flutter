@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../hotwire.dart';
 import '../turbo/path_properties.dart';
+import '../turbo/errors/visit_error.dart';
 import '../turbo/visit/visit_action.dart';
 import '../turbo/visit/visit_options.dart';
 import '../turbo/visit/visit_proposal.dart';
@@ -16,7 +17,17 @@ abstract class SessionDelegate {
   void sessionDidLoadWebView(Session session) {}
   void sessionDidInvalidatePage(Session session) {}
   void sessionDidProposeVisit(Session session, VisitProposal proposal) {}
-  void sessionDidFailRequest(Session session, String errorMessage) {}
+  void sessionDidFailRequest(Session session, VisitError error) {}
+  void sessionDidFailRequestWithRetry(
+    Session session,
+    VisitError error,
+    void Function() retry,
+  ) {}
+  void sessionDidFailRequestWithNonHttpStatus(
+    Session session,
+    String location,
+    String identifier,
+  ) {}
 }
 
 abstract class SessionWebViewAdapter {
@@ -33,6 +44,7 @@ class Session {
   String? _lastVisitedLocation;
   SessionWebViewAdapter? _adapter;
   final Map<String, String> _restorationIdentifiers = {};
+  void Function(VisitError error, void Function() retry)? onError;
 
   Session({
     SessionDelegate? delegate,
@@ -66,9 +78,6 @@ class Session {
 
   void handleTurboMessage(String name, Map<String, dynamic> data) {
     final outcome = _tracker.handle(name, data);
-    if (outcome.errorMessage != null) {
-      delegate?.sessionDidFailRequest(this, outcome.errorMessage!);
-    }
 
     if (outcome.proposedLocation != null) {
       final location = outcome.proposedLocation!;
@@ -77,6 +86,17 @@ class Session {
     }
 
     switch (name) {
+      case 'visitRequestFailedWithNonHttpStatusCode':
+        final location = data['location'];
+        final identifier = data['identifier'];
+        if (location is String && identifier is String) {
+          delegate?.sessionDidFailRequestWithNonHttpStatus(
+            this,
+            location,
+            identifier,
+          );
+        }
+        break;
       case 'visitCompleted':
         final identifier = data['identifier'];
         final restorationIdentifier = data['restorationIdentifier'];
@@ -102,9 +122,40 @@ class Session {
       case 'visitRequestFinished':
         delegate?.sessionDidFinishRequest(this);
         break;
+      case 'visitRequestFailed':
+        final statusCode = data['statusCode'];
+        if (statusCode is int) {
+          _emitError(TurboError.http(statusCode));
+        }
+        break;
+      case 'pageLoadFailed':
+        _emitError(TurboError.pageLoadFailure());
+        break;
+      case 'errorRaised':
+        final message =
+            data['error']?.toString() ?? 'An unknown error occurred.';
+        _emitError(TurboError.message(message));
+        break;
       default:
         break;
     }
+  }
+
+  void _emitError(VisitError error) {
+    void retry() {
+      if (_initialized) {
+        reload();
+        return;
+      }
+      final lastLocation = _lastVisitedLocation;
+      if (lastLocation != null) {
+        visit(lastLocation);
+      }
+    }
+
+    delegate?.sessionDidFailRequest(this, error);
+    delegate?.sessionDidFailRequestWithRetry(this, error, retry);
+    onError?.call(error, retry);
   }
 
   Future<void> visit(String location) async {
@@ -167,7 +218,14 @@ class Session {
 
   RouteDecision decideNavigation(String location) {
     final properties = Hotwire().config.pathConfiguration.properties(location);
-    return _routeDecisionHandler(
+    if (_routeDecisionHandler != defaultRouteDecision) {
+      return _routeDecisionHandler(
+        location: location,
+        properties: properties,
+        initialized: _initialized,
+      );
+    }
+    return Hotwire().config.routeDecisionManager.decide(
       location: location,
       properties: properties,
       initialized: _initialized,

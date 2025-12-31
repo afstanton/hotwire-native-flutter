@@ -1,4 +1,9 @@
+import 'session/route_decision.dart';
 import 'turbo/path_configuration.dart';
+import 'webview/policy/handlers/external_navigation_policy_handler.dart';
+import 'webview/policy/handlers/link_activated_policy_handler.dart';
+import 'webview/policy/handlers/new_window_policy_handler.dart';
+import 'webview/policy/webview_policy_manager.dart';
 
 typedef BridgeJsonDecoder = Map<String, dynamic> Function(dynamic data);
 typedef BridgeJsonEncoder = Object? Function(Object data);
@@ -18,6 +23,18 @@ class HotwireConfig {
 
   /// Optional custom JSON encoder for bridge component payloads.
   BridgeJsonEncoder? bridgeJsonEncoder;
+
+  /// WebView navigation policy manager.
+  WebViewPolicyManager webViewPolicyManager = WebViewPolicyManager(
+    handlers: [
+      NewWindowPolicyHandler(),
+      LinkActivatedPolicyHandler(),
+      ExternalNavigationPolicyHandler(),
+    ],
+  );
+
+  /// Route decision chain for app navigation.
+  RouteDecisionManager routeDecisionManager = RouteDecisionManager();
 
   /// Builds the user agent string, optionally including bridge components.
   String buildUserAgent({

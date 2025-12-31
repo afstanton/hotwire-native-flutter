@@ -15,8 +15,8 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Global configuration entrypoint (Hotwire config)
 - [x] Custom user agent prefix + component list
 - [x] Debug logging flag (config flag only)
-- [ ] WebView default user agent integration
-- [ ] WebView debugging toggle
+- [ ] WebView default user agent integration (platform channel needed)
+- [ ] WebView debugging toggle (platform channel needed)
 - [ ] Custom webview factory / per-session webview configuration hook
 - [ ] Custom JSON encoder/decoder integration parity (naming strategies, errors surfaced)
 
@@ -71,27 +71,28 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] WebView-backed session (cold boot vs JS visits)
 - [x] Snapshot cache / restore integration (basic hooks)
 - [x] Page invalidation + reload behavior
-- [ ] Non-HTTP error redirect handling (cross-origin redirect checks)
+- [x] Non-HTTP error redirect handling (delegate hook)
 - [ ] Session delegate parity (complete list vs iOS/Android)
 - [ ] Form submission lifecycle: start/finish hooks toggle progress UI
-- [ ] Page load failed / errorRaised propagation
+- [x] Page load failed / errorRaised propagation
 - [ ] Restoration identifiers tracked per visitable
 - [x] Session reset + cold boot behavior
 
 ### WebView policy / routing
 
-- [ ] External navigation policy (system browser / url launcher)
-- [ ] New window policy
-- [ ] Reload policy
-- [ ] Link activated policy
-- [ ] App navigation policy handler chain
+- [x] External navigation policy (non-http schemes)
+- [ ] New window policy (platform channel or plugin support needed; handler exists)
+- [ ] Reload policy (platform channel needed)
+- [x] Link activated policy (basic)
+- [x] App navigation policy handler chain (basic manager)
 - [ ] Modal presentation rules from path config (context + presentation)
 
 ### Errors
 
-- [ ] Web error types (HTTP / SSL / network)
-- [ ] Standard error view / handler hooks
-- [ ] Error retry handler hook
+- [x] Web error types (Turbo-style network/timeout/content-type/http/page-load)
+- [ ] SSL error type mapping
+- [x] Standard error view / handler hooks (basic)
+- [x] Error retry handler hook (basic)
 
 ### Offline caching
 
@@ -102,9 +103,9 @@ This document tracks feature parity between the Flutter library and the Android/
 
 ### File chooser / geolocation
 
-- [ ] File chooser delegate
-- [ ] Camera capture delegate
-- [ ] Geolocation permission delegate
+- [ ] File chooser delegate (platform channel needed)
+- [ ] Camera capture delegate (platform channel needed)
+- [ ] Geolocation permission delegate (platform channel needed)
 - [ ] MIME type filters and multiple file selection
 
 ## Demo App Parity Checklist
@@ -149,6 +150,16 @@ This document tracks feature parity between the Flutter library and the Android/
    - Offline cache strategy + pre-cache API.
    - File chooser + geolocation.
    - Error types and presentation hooks.
+
+## Platform Channel Backlog
+
+- WebView default user agent integration
+- WebView debugging toggle
+- New window policy support
+- Reload policy
+- File chooser delegate
+- Camera capture delegate
+- Geolocation permission delegate
 
 ## Reference Mapping (Key Files)
 
