@@ -6,12 +6,25 @@ import '../turbo/errors/visit_error.dart';
 import '../turbo/visit/visit_action.dart';
 import '../turbo/visit/visit_options.dart';
 import '../turbo/visit/visit_proposal.dart';
+import '../turbo/visit/visit_state.dart';
 import 'route_decision.dart';
 import 'turbo_event_tracker.dart';
 
 abstract class SessionDelegate {
   void sessionDidStartRequest(Session session) {}
   void sessionDidFinishRequest(Session session) {}
+  void sessionDidStartVisit(
+    Session session,
+    String identifier,
+    bool hasCachedSnapshot,
+    bool isPageRefresh,
+  ) {}
+  void sessionDidRenderVisit(Session session, String identifier) {}
+  void sessionDidCompleteVisit(
+    Session session,
+    String identifier,
+    String? restorationIdentifier,
+  ) {}
   void sessionDidStartFormSubmission(Session session) {}
   void sessionDidFinishFormSubmission(Session session) {}
   void sessionDidLoadWebView(Session session) {}
@@ -28,6 +41,12 @@ abstract class SessionDelegate {
     String location,
     String identifier,
   ) {}
+  void sessionDidProposeVisitToCrossOriginRedirect(
+    Session session,
+    String location,
+  ) {}
+  void sessionDidStartPage(Session session, String location) {}
+  void sessionDidFinishPage(Session session, String location) {}
 }
 
 abstract class SessionWebViewAdapter {
@@ -86,6 +105,40 @@ class Session {
     }
 
     switch (name) {
+      case 'visitStarted':
+        final identifier = data['identifier']?.toString();
+        if (identifier != null) {
+          final visit = _tracker.visitFor(identifier);
+          if (visit != null) {
+            delegate?.sessionDidStartVisit(
+              this,
+              identifier,
+              visit.hasCachedSnapshot,
+              visit.isPageRefresh,
+            );
+          }
+        }
+        break;
+      case 'visitRendered':
+        final identifier = data['identifier']?.toString();
+        if (identifier != null) {
+          delegate?.sessionDidRenderVisit(this, identifier);
+        }
+        break;
+      case 'visitCompleted':
+        final identifier = data['identifier'];
+        final restorationIdentifier = data['restorationIdentifier'];
+        if (identifier is String && restorationIdentifier is String) {
+          _restorationIdentifiers[identifier] = restorationIdentifier;
+        }
+        if (identifier is String) {
+          delegate?.sessionDidCompleteVisit(
+            this,
+            identifier,
+            restorationIdentifier?.toString(),
+          );
+        }
+        break;
       case 'visitRequestFailedWithNonHttpStatusCode':
         final location = data['location'];
         final identifier = data['identifier'];
@@ -95,13 +148,6 @@ class Session {
             location,
             identifier,
           );
-        }
-        break;
-      case 'visitCompleted':
-        final identifier = data['identifier'];
-        final restorationIdentifier = data['restorationIdentifier'];
-        if (identifier is String && restorationIdentifier is String) {
-          _restorationIdentifiers[identifier] = restorationIdentifier;
         }
         break;
       case 'formSubmissionStarted':
@@ -232,6 +278,44 @@ class Session {
     );
   }
 
+  bool isCrossOriginLocation(String location) {
+    final lastLocation = _lastVisitedLocation;
+    if (lastLocation == null) {
+      return false;
+    }
+    final current = Uri.tryParse(lastLocation);
+    final next = Uri.tryParse(location);
+    if (current == null || next == null) {
+      return false;
+    }
+    if (!_isHttpScheme(current.scheme) || !_isHttpScheme(next.scheme)) {
+      return false;
+    }
+    return current.origin != next.origin;
+  }
+
+  void handleCrossOriginRedirect(String location) {
+    delegate?.sessionDidProposeVisitToCrossOriginRedirect(this, location);
+  }
+
+  VisitState? visitState(String identifier) {
+    final visit = _tracker.visitFor(identifier);
+    if (visit == null) {
+      return null;
+    }
+    return VisitState(
+      identifier: visit.identifier,
+      hasCachedSnapshot: visit.hasCachedSnapshot,
+      isPageRefresh: visit.isPageRefresh,
+      started: visit.started,
+      rendered: visit.rendered,
+      completed: visit.completed,
+      failed: visit.statusCode != null,
+      statusCode: visit.statusCode,
+      restorationIdentifier: visit.restorationIdentifier,
+    );
+  }
+
   void recordVisitLocation(String location) {
     _lastVisitedLocation = location;
   }
@@ -274,6 +358,11 @@ class Session {
     } catch (_) {
       return location;
     }
+  }
+
+  static bool _isHttpScheme(String scheme) {
+    final normalized = scheme.toLowerCase();
+    return normalized == 'http' || normalized == 'https';
   }
 
   VisitOptions _parseVisitOptions(Map<String, dynamic>? options) {

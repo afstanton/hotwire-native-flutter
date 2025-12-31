@@ -29,8 +29,8 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Path rule matching with regex patterns
 - [x] Settings map parsing
 - [x] Query string matching toggle
-- [ ] Path configuration loader options (custom headers, URLSession config parity)
-- [ ] Path configuration file format validation errors surfaced
+- [x] Path configuration loader options (custom headers, URLSession config parity)
+- [x] Path configuration file format validation errors surfaced
 - [ ] Historical location behavior: recede/resume/refresh applied to navigation stack
 
 ### Path properties helpers
@@ -48,7 +48,7 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] VisitOptions (action, snapshotHTML, response)
 - [x] VisitResponse (statusCode, redirected, responseHTML)
 - [x] VisitProposal (url, options, properties, parameters)
-- [ ] Visit state modeling (started, rendered, completed, failed)
+- [x] Visit state modeling (started, rendered, completed, failed)
 
 ### Bridge
 
@@ -60,7 +60,7 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Bridge replies over webview
 - [ ] User agent includes registered components + platform default UA
 - [ ] Bridge message format parity: {id, component, event, data, metadata.url}
-- [ ] Bridge lifecycle: connect/disconnect events for components
+- [x] Bridge lifecycle: connect/disconnect events for components
 
 ### Session core
 
@@ -73,7 +73,10 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Page invalidation + reload behavior
 - [x] Non-HTTP error redirect handling (delegate hook)
 - [ ] Session delegate parity (complete list vs iOS/Android)
-- [ ] Form submission lifecycle: start/finish hooks toggle progress UI
+  - [x] Cross-origin redirect proposal callback
+  - [ ] WebView process termination callback (platform channel needed)
+  - [ ] HTTP auth challenge handling (platform channel needed)
+- [x] Form submission lifecycle: start/finish hooks toggle progress UI
 - [x] Page load failed / errorRaised propagation
 - [ ] Restoration identifiers tracked per visitable
 - [x] Session reset + cold boot behavior
@@ -90,7 +93,7 @@ This document tracks feature parity between the Flutter library and the Android/
 ### Errors
 
 - [x] Web error types (Turbo-style network/timeout/content-type/http/page-load)
-- [ ] SSL error type mapping
+- [x] SSL error type mapping (model only; no WebView hook yet)
 - [x] Standard error view / handler hooks (basic)
 - [x] Error retry handler hook (basic)
 
@@ -115,15 +118,17 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Native Numbers screen (1–100)
 - [x] Modal web for `/new`, `/edit`, `/modal`, `/numbers/:id`
 - [x] Native image viewer for image paths
-- [ ] Demo bridge components (menu, form, overflow menu) wired to web
-- [ ] Demo toolbar progress indicator for form submission
+- [x] Demo bridge components (menu, form, overflow menu) wired to web
+- [x] Demo toolbar progress indicator for form submission
 
 ## Current State (Flutter)
 
 - Core config + path configuration + rule matching implemented and tested.
 - Bridge primitives (message, component, factory, dispatcher) implemented and tested.
+- Bridge component lifecycle + reply helpers implemented and tested.
 - Turbo visit models implemented and tested.
 - Minimal session logic implemented and tested.
+- Visit state modeling implemented and tested.
 - Minimal WebView widget using `webview_flutter` added to enable in-app navigation.
 - Turbo/Bridge JS injected into WebView and wired to Session/Bridge message flow.
 - Session now supports `visitWithOptions`, `restoreOrVisit`, snapshot cache hooks via a WebView adapter (no full lifecycle yet).
@@ -131,25 +136,16 @@ This document tracks feature parity between the Flutter library and the Android/
 
 ## Next Steps (No platform-specific code yet)
 
-1) WebView bridge injection + message handling
-   - Inject Turbo/Bridge JS into webview.
-   - Wire JS -> Session event flow and Bridge message dispatch.
-   - Enable reply path from native -> JS.
+1) Session delegate parity (non-platform hooks)
+   - Determine cross-origin redirect proposal behavior in Flutter.
+   - Document platform-channel-dependent delegate hooks (auth challenge, render process termination).
 
-2) WebView-backed session lifecycle
-   - Cold boot vs JS visit logic.
-   - Snapshot cache + restore hooks.
-   - Page invalidation handling.
+2) Path configuration parity polish
+   - Support tabs property parsing if used by native demos.
 
-3) Routing + policy handling
-   - External navigation hook.
-   - New window + reload + link activated policies.
-   - Route decision chain matching iOS/Android behavior.
-
-4) Remaining parity features
-   - Offline cache strategy + pre-cache API.
-   - File chooser + geolocation.
-   - Error types and presentation hooks.
+3) Demo app parity
+   - Wire demo bridge components (menu, form, overflow menu).
+   - Add toolbar progress indicator for form submission if used by native demos.
 
 ## Platform Channel Backlog
 
@@ -157,6 +153,8 @@ This document tracks feature parity between the Flutter library and the Android/
 - WebView debugging toggle
 - New window policy support
 - Reload policy
+- WebView process termination callback
+- HTTP auth challenge handling
 - File chooser delegate
 - Camera capture delegate
 - Geolocation permission delegate

@@ -3,6 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 
+import 'bridge/form_component.dart';
+import 'bridge/menu_component.dart';
+import 'bridge/overflow_menu_component.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const DemoApp());
@@ -160,11 +164,51 @@ class WebTab extends StatefulWidget {
 
 class _WebTabState extends State<WebTab> {
   late final Session _session;
+  late final Bridge _bridge;
+  FormActionState? _formAction;
+  OverflowActionState? _overflowAction;
+  bool _showFormProgress = false;
 
   @override
   void initState() {
     super.initState();
     _session = Session();
+    _session.delegate = _DemoSessionDelegate(
+      onFormSubmissionStarted: () {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _showFormProgress = true);
+      },
+      onFormSubmissionFinished: () {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _showFormProgress = false);
+      },
+    );
+    _bridge = Bridge();
+    _bridge.register(
+      DemoFormComponent(
+        onChanged: (state) {
+          if (!mounted) {
+            return;
+          }
+          setState(() => _formAction = state);
+        },
+      ),
+    );
+    _bridge.register(
+      DemoOverflowMenuComponent(
+        onChanged: (state) {
+          if (!mounted) {
+            return;
+          }
+          setState(() => _overflowAction = state);
+        },
+      ),
+    );
+    _bridge.register(DemoMenuComponent(state: this));
   }
 
   void _handleRouteRequest(String location, Map<String, dynamic> properties) {
@@ -227,11 +271,59 @@ class _WebTabState extends State<WebTab> {
 
   @override
   Widget build(BuildContext context) {
-    return HotwireWebView(
-      url: widget.url,
-      session: _session,
-      onRouteRequest: _handleRouteRequest,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Hotwire Native Demo'),
+        actions: [
+          if (_showFormProgress)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          if (_overflowAction != null)
+            IconButton(
+              tooltip: _overflowAction!.label,
+              icon: const Icon(Icons.more_horiz),
+              onPressed: _overflowAction!.onPressed,
+            ),
+          if (_formAction != null)
+            TextButton(
+              onPressed: _formAction!.enabled ? _formAction!.onPressed : null,
+              child: Text(_formAction!.title),
+            ),
+        ],
+      ),
+      body: HotwireWebView(
+        url: widget.url,
+        session: _session,
+        bridge: _bridge,
+        onRouteRequest: _handleRouteRequest,
+      ),
     );
+  }
+}
+
+class _DemoSessionDelegate extends SessionDelegate {
+  final VoidCallback onFormSubmissionStarted;
+  final VoidCallback onFormSubmissionFinished;
+
+  _DemoSessionDelegate({
+    required this.onFormSubmissionStarted,
+    required this.onFormSubmissionFinished,
+  });
+
+  @override
+  void sessionDidStartFormSubmission(Session session) {
+    onFormSubmissionStarted();
+  }
+
+  @override
+  void sessionDidFinishFormSubmission(Session session) {
+    onFormSubmissionFinished();
   }
 }
 

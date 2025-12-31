@@ -52,6 +52,7 @@ class _HotwireWebViewState extends State<HotwireWebView> {
     super.initState();
     _bridge = widget.bridge ?? Bridge();
     _bridge.replyHandler = _sendBridgeReply;
+    _bridge.activate();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(
@@ -73,13 +74,15 @@ class _HotwireWebViewState extends State<HotwireWebView> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (_) {
+          onPageStarted: (url) {
             if (mounted) setState(() => _isLoading = true);
+            widget.session.delegate?.sessionDidStartPage(widget.session, url);
           },
           onPageFinished: (url) {
             _injectScripts();
             widget.session.markInitialized();
             widget.session.recordVisitLocation(url);
+            widget.session.delegate?.sessionDidFinishPage(widget.session, url);
             if (mounted) setState(() => _isLoading = false);
           },
           onNavigationRequest: _handleNavigation,
@@ -105,6 +108,12 @@ class _HotwireWebViewState extends State<HotwireWebView> {
       return NavigationDecision.prevent;
     }
     if (policyDecision == WebViewPolicyDecision.cancel) {
+      return NavigationDecision.prevent;
+    }
+
+    if (request.isMainFrame &&
+        widget.session.isCrossOriginLocation(request.url)) {
+      widget.session.handleCrossOriginRedirect(request.url);
       return NavigationDecision.prevent;
     }
 
@@ -151,11 +160,8 @@ class _HotwireWebViewState extends State<HotwireWebView> {
     }
   }
 
-  Future<void> _sendBridgeReply(
-    BridgeMessage originalMessage,
-    Map<String, dynamic> data,
-  ) async {
-    final reply = originalMessage.replacingData(data).toMap();
+  Future<void> _sendBridgeReply(BridgeMessage message) async {
+    final reply = message.toMap();
     final jsonReply = json.encode(reply);
     await _controller.runJavaScript(
       "window.nativeBridge.replyWith($jsonReply)",
@@ -179,6 +185,7 @@ class _HotwireWebViewState extends State<HotwireWebView> {
     if (widget.session.onError == _handleSessionError) {
       widget.session.onError = _previousErrorHandler;
     }
+    _bridge.deactivate();
     super.dispose();
   }
 

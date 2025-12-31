@@ -3,6 +3,8 @@ import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 
 class TestComponent extends BridgeComponent {
   final List<String> events = [];
+  int startCalls = 0;
+  int stopCalls = 0;
 
   @override
   String get name => 'test';
@@ -10,6 +12,16 @@ class TestComponent extends BridgeComponent {
   @override
   void onReceive(BridgeMessage message) {
     events.add(message.event);
+  }
+
+  @override
+  void onStart() {
+    startCalls += 1;
+  }
+
+  @override
+  void onStop() {
+    stopCalls += 1;
   }
 }
 
@@ -53,6 +65,7 @@ void main() {
     final bridge = Bridge();
     final component = TestComponent();
     bridge.register(component);
+    bridge.activate();
 
     final handled = bridge.handleMessage({
       'id': '1',
@@ -68,6 +81,7 @@ void main() {
   test('Bridge builds components using factories', () {
     final bridge = Bridge();
     bridge.registerFactory(TestFactory());
+    bridge.activate();
 
     final handled = bridge.handleMessage({
       'id': '1',
@@ -78,5 +92,41 @@ void main() {
 
     expect(handled, isTrue);
     expect(bridge.registeredComponentNames(), contains('factory'));
+  });
+
+  test('Bridge notifies component lifecycle on activate/deactivate', () {
+    final bridge = Bridge();
+    final component = TestComponent();
+    bridge.register(component);
+
+    bridge.activate();
+    expect(component.startCalls, 1);
+
+    bridge.deactivate();
+    expect(component.stopCalls, 1);
+  });
+
+  test('BridgeComponent replies using cached messages', () {
+    final bridge = Bridge();
+    final component = TestComponent();
+    BridgeMessage? replied;
+    bridge.replyHandler = (message) {
+      replied = message;
+    };
+    bridge.register(component);
+    bridge.activate();
+
+    bridge.handleMessage({
+      'id': '99',
+      'component': 'test',
+      'event': 'connected',
+      'data': {'status': 'ok'},
+    });
+
+    final didReply = component.replyTo('connected');
+
+    expect(didReply, isTrue);
+    expect(replied?.event, 'connected');
+    expect(replied?.id, '99');
   });
 }

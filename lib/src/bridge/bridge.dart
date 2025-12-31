@@ -9,18 +9,24 @@ typedef BridgeMessageHandler = bool Function(BridgeMessage message);
 class Bridge implements BridgeDelegate {
   final Map<String, BridgeComponent> _components = {};
   final Map<String, BridgeComponentFactory> _factories = {};
+  bool _isActive = false;
 
   BridgeMessageHandler? messageHandler;
-  void Function(BridgeMessage originalMessage, Map<String, dynamic> data)?
-  replyHandler;
+  void Function(BridgeMessage message)? replyHandler;
 
   void register(BridgeComponent component) {
     component.delegate = this;
     _components[component.name] = component;
+    if (_isActive) {
+      component.didStart();
+    }
   }
 
   void unregister(String name) {
-    _components.remove(name);
+    final component = _components.remove(name);
+    if (_isActive) {
+      component?.didStop();
+    }
   }
 
   void registerFactory(BridgeComponentFactory factory) {
@@ -35,7 +41,31 @@ class Bridge implements BridgeDelegate {
     return {..._components.keys, ..._factories.keys}.toList();
   }
 
+  void activate() {
+    if (_isActive) {
+      return;
+    }
+    _isActive = true;
+    for (final component in _components.values) {
+      component.didStart();
+    }
+  }
+
+  void deactivate() {
+    if (!_isActive) {
+      return;
+    }
+    for (final component in _components.values) {
+      component.didStop();
+    }
+    _isActive = false;
+  }
+
   bool handleMessage(Map<String, dynamic> payload) {
+    if (!_isActive) {
+      return false;
+    }
+
     final message = BridgeMessage.fromMap(payload);
     if (messageHandler?.call(message) == true) {
       return true;
@@ -45,7 +75,6 @@ class Bridge implements BridgeDelegate {
     final existing = _components[componentName];
     if (existing != null) {
       existing.didReceive(message);
-      existing.onReceive(message);
       return true;
     }
 
@@ -54,8 +83,10 @@ class Bridge implements BridgeDelegate {
       final component = factory.create();
       component.delegate = this;
       _components[componentName] = component;
+      if (_isActive) {
+        component.didStart();
+      }
       component.didReceive(message);
-      component.onReceive(message);
       return true;
     }
 
@@ -71,7 +102,12 @@ class Bridge implements BridgeDelegate {
   }
 
   @override
-  void replyWith(BridgeMessage originalMessage, Map<String, dynamic> data) {
-    replyHandler?.call(originalMessage, data);
+  @override
+  bool replyWith(BridgeMessage message) {
+    if (replyHandler == null) {
+      return false;
+    }
+    replyHandler?.call(message);
+    return true;
   }
 }

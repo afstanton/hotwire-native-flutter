@@ -143,6 +143,7 @@ class TurboEventTracker {
           errorMessage: "Visit Failed: ${visit.statusCode}",
         );
       case 'visitRequestFailedWithNonHttpStatusCode':
+        visit.statusCode = -1;
         return const TurboEventOutcome(
           errorMessage: "Visit Failed: non-HTTP status",
         );

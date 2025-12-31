@@ -50,6 +50,30 @@ void main() {
     expect(properties['historical_location'], true);
     expect(properties['presentation'], 'pop');
   });
+
+  test('PathConfiguration reports invalid JSON errors', () async {
+    final configuration = PathConfiguration();
+    final error = await _errorFromSources(configuration, [
+      const PathConfigurationSource.data('{"rules": "invalid"}'),
+    ]);
+    expect(error.type, PathConfigurationErrorType.invalidData);
+  });
+
+  test('PathConfiguration loader reports download failures', () async {
+    final loader = PathConfigurationLoader(repository: _FailingRepository());
+
+    final errors = <PathConfigurationError>[];
+    await loader.load(
+      sources: const [
+        PathConfigurationSource.server('https://example.com/config.json'),
+      ],
+      onLoaded: (_) {},
+      onError: errors.add,
+    );
+
+    expect(errors, isNotEmpty);
+    expect(errors.first.type, PathConfigurationErrorType.downloadFailed);
+  });
 }
 
 Future<void> _applySources(
@@ -64,4 +88,35 @@ Future<void> _applySources(
   });
   configuration.sources = sources;
   await completer.future;
+}
+
+Future<PathConfigurationError> _nextError(PathConfiguration configuration) {
+  final completer = Completer<PathConfigurationError>();
+  late final StreamSubscription sub;
+  sub = configuration.onError.listen((error) {
+    sub.cancel();
+    completer.complete(error);
+  });
+  return completer.future;
+}
+
+Future<PathConfigurationError> _errorFromSources(
+  PathConfiguration configuration,
+  List<PathConfigurationSource> sources,
+) async {
+  final completer = Completer<PathConfigurationError>();
+  late final StreamSubscription sub;
+  sub = configuration.onError.listen((error) {
+    sub.cancel();
+    completer.complete(error);
+  });
+  configuration.sources = sources;
+  return completer.future;
+}
+
+class _FailingRepository extends PathConfigurationRepository {
+  @override
+  Future<String?> download(String url, {Map<String, String>? headers}) async {
+    return null;
+  }
 }

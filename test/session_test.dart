@@ -7,12 +7,18 @@ class SessionDelegateSpy extends SessionDelegate {
   int proposedVisits = 0;
   int startRequests = 0;
   int finishRequests = 0;
+  int startVisits = 0;
+  int renderVisits = 0;
+  int completeVisits = 0;
+  String? lastVisitIdentifier;
+  String? lastRestorationIdentifier;
   int nonHttpFailures = 0;
   int retryCallbacks = 0;
   VisitError? lastError;
   VisitProposal? lastProposal;
   String? lastNonHttpLocation;
   String? lastNonHttpIdentifier;
+  String? lastCrossOriginLocation;
 
   @override
   void sessionDidProposeVisit(Session session, VisitProposal proposal) {
@@ -28,6 +34,34 @@ class SessionDelegateSpy extends SessionDelegate {
   @override
   void sessionDidFinishRequest(Session session) {
     finishRequests += 1;
+  }
+
+  @override
+  void sessionDidStartVisit(
+    Session session,
+    String identifier,
+    bool hasCachedSnapshot,
+    bool isPageRefresh,
+  ) {
+    startVisits += 1;
+    lastVisitIdentifier = identifier;
+  }
+
+  @override
+  void sessionDidRenderVisit(Session session, String identifier) {
+    renderVisits += 1;
+    lastVisitIdentifier = identifier;
+  }
+
+  @override
+  void sessionDidCompleteVisit(
+    Session session,
+    String identifier,
+    String? restorationIdentifier,
+  ) {
+    completeVisits += 1;
+    lastVisitIdentifier = identifier;
+    lastRestorationIdentifier = restorationIdentifier;
   }
 
   @override
@@ -54,6 +88,14 @@ class SessionDelegateSpy extends SessionDelegate {
     nonHttpFailures += 1;
     lastNonHttpLocation = location;
     lastNonHttpIdentifier = identifier;
+  }
+
+  @override
+  void sessionDidProposeVisitToCrossOriginRedirect(
+    Session session,
+    String location,
+  ) {
+    lastCrossOriginLocation = location;
   }
 }
 
@@ -292,6 +334,72 @@ void main() {
     });
 
     expect(session.restorationIdentifierFor('visit-1'), 'rest-1');
+  });
+
+  test('Session tracks visit lifecycle events and state', () {
+    final delegate = SessionDelegateSpy();
+    final session = Session(delegate: delegate);
+
+    session.handleTurboMessage('visitStarted', {
+      'identifier': 'visit-1',
+      'hasCachedSnapshot': true,
+      'isPageRefresh': false,
+    });
+    session.handleTurboMessage('visitRendered', {'identifier': 'visit-1'});
+    session.handleTurboMessage('visitCompleted', {
+      'identifier': 'visit-1',
+      'restorationIdentifier': 'rest-1',
+    });
+
+    expect(delegate.startVisits, 1);
+    expect(delegate.renderVisits, 1);
+    expect(delegate.completeVisits, 1);
+    expect(delegate.lastVisitIdentifier, 'visit-1');
+    expect(delegate.lastRestorationIdentifier, 'rest-1');
+
+    final state = session.visitState('visit-1');
+    expect(state?.started, isTrue);
+    expect(state?.rendered, isTrue);
+    expect(state?.completed, isTrue);
+    expect(state?.hasCachedSnapshot, isTrue);
+  });
+
+  test('Session marks visits as failed on request errors', () {
+    final session = Session();
+
+    session.handleTurboMessage('visitStarted', {
+      'identifier': 'visit-2',
+      'hasCachedSnapshot': false,
+      'isPageRefresh': false,
+    });
+    session.handleTurboMessage('visitRequestFailed', {
+      'identifier': 'visit-2',
+      'statusCode': 503,
+    });
+
+    final state = session.visitState('visit-2');
+    expect(state?.failed, isTrue);
+    expect(state?.statusCode, 503);
+  });
+
+  test('Session detects cross-origin redirects', () {
+    final session = Session();
+    session.recordVisitLocation('https://example.com/items');
+
+    expect(
+      session.isCrossOriginLocation('https://other.example.com/items'),
+      isTrue,
+    );
+    expect(session.isCrossOriginLocation('https://example.com/other'), isFalse);
+  });
+
+  test('Session reports cross-origin redirect proposals', () {
+    final delegate = SessionDelegateSpy();
+    final session = Session(delegate: delegate);
+
+    session.handleCrossOriginRedirect('https://other.example.com/items');
+
+    expect(delegate.lastCrossOriginLocation, 'https://other.example.com/items');
   });
 }
 
