@@ -150,12 +150,16 @@ class WebTab extends StatefulWidget {
   final VoidCallback onOpenNumbers;
   final void Function(String url) onOpenModalWeb;
   final void Function(String url) onOpenImage;
+  final Session? session;
+  final Bridge? bridge;
 
   const WebTab({
     required this.url,
     required this.onOpenNumbers,
     required this.onOpenModalWeb,
     required this.onOpenImage,
+    this.session,
+    this.bridge,
     super.key,
   });
 
@@ -173,7 +177,7 @@ class _WebTabState extends State<WebTab> {
   @override
   void initState() {
     super.initState();
-    _session = Session();
+    _session = widget.session ?? Session();
     _session.delegate = _DemoSessionDelegate(
       onFormSubmissionStarted: () {
         if (!mounted) {
@@ -189,7 +193,7 @@ class _WebTabState extends State<WebTab> {
       },
       onVisitProposed: _handleVisitProposal,
     );
-    _bridge = Bridge();
+    _bridge = widget.bridge ?? Bridge();
     _bridge.register(
       DemoFormComponent(
         onChanged: (state) {
