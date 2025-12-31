@@ -130,6 +130,7 @@ This document tracks feature parity between the Flutter library and the Android/
 - Turbo visit models implemented and tested.
 - Minimal session logic implemented and tested.
 - Visit state modeling implemented and tested.
+- Platform hook placeholders added for auth/process/file/geolocation/offline events.
 - Minimal WebView widget using `webview_flutter` added to enable in-app navigation.
 - Turbo/Bridge JS injected into WebView and wired to Session/Bridge message flow.
 - Session now supports `visitWithOptions`, `restoreOrVisit`, snapshot cache hooks via a WebView adapter (no full lifecycle yet).

@@ -1,5 +1,6 @@
 import 'session/route_decision.dart';
 import 'turbo/path_configuration.dart';
+import 'webview/platform_hooks.dart';
 import 'webview/policy/handlers/external_navigation_policy_handler.dart';
 import 'webview/policy/handlers/link_activated_policy_handler.dart';
 import 'webview/policy/handlers/new_window_policy_handler.dart';
@@ -26,6 +27,25 @@ class HotwireConfig {
 
   /// Optional error handler for bridge JSON encode/decode failures.
   void Function(Object error)? bridgeJsonErrorHandler;
+
+  /// Optional default user agent to apply when the platform WebView exposes it.
+  String? webViewDefaultUserAgent;
+
+  /// Optional web view debugging toggle when supported by platform.
+  bool? webViewDebuggingEnabled;
+
+  /// Optional hooks for platform-specific web view events.
+  void Function(WebViewProcessTermination event)? onWebViewProcessTerminated;
+  Future<WebViewHttpAuthResponse?> Function(WebViewHttpAuthChallenge challenge)?
+  onHttpAuthChallenge;
+  Future<WebViewFileChooserResult?> Function(WebViewFileChooserParams params)?
+  onFileChooser;
+  Future<WebViewGeolocationPermissionResponse?> Function(
+    WebViewGeolocationPermissionRequest request,
+  )?
+  onGeolocationPermissionRequest;
+  Future<OfflineResponse?> Function(OfflineRequest request)?
+  offlineRequestHandler;
 
   /// WebView navigation policy manager.
   WebViewPolicyManager webViewPolicyManager = WebViewPolicyManager(

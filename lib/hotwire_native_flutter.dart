@@ -19,6 +19,7 @@ export 'src/turbo/visit/visit_proposal.dart';
 export 'src/turbo/visit/visit_response.dart';
 export 'src/turbo/visit/visit_state.dart';
 export 'src/webview/hotwire_webview.dart';
+export 'src/webview/platform_hooks.dart';
 export 'src/webview/policy/webview_policy_decision.dart';
 export 'src/webview/policy/webview_policy_handler.dart';
 export 'src/webview/policy/webview_policy_manager.dart';
