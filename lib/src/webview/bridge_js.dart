@@ -64,11 +64,17 @@ const String bridgeJs = r'''
     }
 
     get isWebBridgeAvailable() {
-      return window.HotwireNative ?? window.Strada
+      return this.webBridge != null
     }
 
     get webBridge() {
-      return window.HotwireNative?.web ?? window.Strada.web
+      if (window.HotwireNative && window.HotwireNative.web) {
+        return window.HotwireNative.web
+      }
+      if (window.Strada && window.Strada.web) {
+        return window.Strada.web
+      }
+      return null
     }
   }
 

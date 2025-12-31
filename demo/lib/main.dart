@@ -9,6 +9,7 @@ import 'bridge/overflow_menu_component.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  Hotwire().config.debugLoggingEnabled = true;
   runApp(const DemoApp());
 }
 
@@ -186,6 +187,7 @@ class _WebTabState extends State<WebTab> {
         }
         setState(() => _showFormProgress = false);
       },
+      onVisitProposed: _handleVisitProposal,
     );
     _bridge = Bridge();
     _bridge.register(
@@ -217,20 +219,39 @@ class _WebTabState extends State<WebTab> {
       return;
     }
 
-    if (_isNumbersIndex(uri)) {
-      widget.onOpenNumbers();
+    _handleNativeRoute(uri, isModal: _isModalPath(uri));
+  }
+
+  void _handleVisitProposal(VisitProposal proposal) {
+    final uri = proposal.url;
+    final handled = _handleNativeRoute(
+      uri,
+      isModal: proposal.context == PresentationContext.modal || _isModalPath(uri),
+    );
+    if (handled) {
       return;
     }
 
-    if (_isNumbersDetail(uri) || _isModalPath(uri)) {
+    _session.visitWithOptions(uri.toString(), options: proposal.options);
+  }
+
+  bool _handleNativeRoute(Uri uri, {required bool isModal}) {
+    if (_isNumbersIndex(uri)) {
+      widget.onOpenNumbers();
+      return true;
+    }
+
+    if (_isNumbersDetail(uri) || isModal) {
       widget.onOpenModalWeb(uri.toString());
-      return;
+      return true;
     }
 
     if (_isImageUrl(uri)) {
       widget.onOpenImage(uri.toString());
-      return;
+      return true;
     }
+
+    return false;
   }
 
   bool _isNumbersIndex(Uri uri) {
@@ -310,10 +331,12 @@ class _WebTabState extends State<WebTab> {
 class _DemoSessionDelegate extends SessionDelegate {
   final VoidCallback onFormSubmissionStarted;
   final VoidCallback onFormSubmissionFinished;
+  final void Function(VisitProposal proposal) onVisitProposed;
 
   _DemoSessionDelegate({
     required this.onFormSubmissionStarted,
     required this.onFormSubmissionFinished,
+    required this.onVisitProposed,
   });
 
   @override
@@ -324,6 +347,11 @@ class _DemoSessionDelegate extends SessionDelegate {
   @override
   void sessionDidFinishFormSubmission(Session session) {
     onFormSubmissionFinished();
+  }
+
+  @override
+  void sessionDidProposeVisit(Session session, VisitProposal proposal) {
+    onVisitProposed(proposal);
   }
 }
 

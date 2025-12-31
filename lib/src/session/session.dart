@@ -96,6 +96,7 @@ class Session {
   }
 
   void handleTurboMessage(String name, Map<String, dynamic> data) {
+    _log('turboMessage $name data=$data');
     final outcome = _tracker.handle(name, data);
 
     if (outcome.proposedLocation != null) {
@@ -388,6 +389,7 @@ class Session {
   }
 
   void updateFromJavaScriptMessage(String jsonMessage) {
+    _log('turboRaw $jsonMessage');
     try {
       final decoded = json.decode(jsonMessage);
       if (decoded is Map<String, dynamic>) {
@@ -400,7 +402,14 @@ class Session {
         }
       }
     } catch (_) {
-      // Ignore invalid payloads.
+      _log('turbo decode failed');
+    }
+  }
+
+  void _log(String message) {
+    if (Hotwire().config.debugLoggingEnabled) {
+      // ignore: avoid_print
+      print('[Session] $message');
     }
   }
 }

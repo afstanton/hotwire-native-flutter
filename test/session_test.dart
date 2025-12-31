@@ -191,6 +191,16 @@ void main() {
     expect(decision, RouteDecision.external);
   });
 
+  test('Default route decision navigates non-modal links', () {
+    final decision = defaultRouteDecision(
+      location: 'https://example.com',
+      properties: const {},
+      initialized: true,
+    );
+
+    expect(decision, RouteDecision.navigate);
+  });
+
   test('Session forwards page load failures and errors', () {
     final delegate = SessionDelegateSpy();
     final session = Session(delegate: delegate);

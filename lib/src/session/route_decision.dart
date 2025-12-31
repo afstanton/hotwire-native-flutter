@@ -24,11 +24,6 @@ RouteDecision defaultRouteDecision({
   if (properties.context == PresentationContext.modal) {
     return RouteDecision.delegate;
   }
-
-  if (initialized) {
-    return RouteDecision.delegate;
-  }
-
   return RouteDecision.navigate;
 }
 

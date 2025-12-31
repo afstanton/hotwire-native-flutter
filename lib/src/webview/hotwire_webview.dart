@@ -63,12 +63,14 @@ class _HotwireWebViewState extends State<HotwireWebView> {
       ..addJavaScriptChannel(
         'HotwireNative',
         onMessageReceived: (message) {
+          _log('bridge->native ${message.message}');
           _handleBridgeMessage(message.message);
         },
       )
       ..addJavaScriptChannel(
         'TurboNative',
         onMessageReceived: (message) {
+          _log('turbo->native ${message.message}');
           widget.session.updateFromJavaScriptMessage(message.message);
         },
       )
@@ -76,9 +78,11 @@ class _HotwireWebViewState extends State<HotwireWebView> {
         NavigationDelegate(
           onPageStarted: (url) {
             if (mounted) setState(() => _isLoading = true);
+            _log('pageStarted $url');
             widget.session.delegate?.sessionDidStartPage(widget.session, url);
           },
           onPageFinished: (url) {
+            _log('pageFinished $url');
             _injectScripts();
             widget.session.markInitialized();
             widget.session.recordVisitLocation(url);
@@ -96,6 +100,9 @@ class _HotwireWebViewState extends State<HotwireWebView> {
   }
 
   NavigationDecision _handleNavigation(NavigationRequest request) {
+    _log(
+      'navRequest url=${request.url} isMainFrame=${request.isMainFrame}',
+    );
     final policyDecision = Hotwire().config.webViewPolicyManager.decide(
       WebViewPolicyRequest(
         url: request.url,
@@ -103,6 +110,7 @@ class _HotwireWebViewState extends State<HotwireWebView> {
         navigationType: request.isMainFrame ? 'link' : null,
       ),
     );
+    _log('policyDecision $policyDecision');
     if (policyDecision == WebViewPolicyDecision.external) {
       widget.onExternalNavigation?.call(request.url);
       return NavigationDecision.prevent;
@@ -113,6 +121,7 @@ class _HotwireWebViewState extends State<HotwireWebView> {
 
     if (request.isMainFrame &&
         widget.session.isCrossOriginLocation(request.url)) {
+      _log('crossOriginRedirect ${request.url}');
       widget.session.handleCrossOriginRedirect(request.url);
       return NavigationDecision.prevent;
     }
@@ -120,6 +129,7 @@ class _HotwireWebViewState extends State<HotwireWebView> {
     final location = request.url;
     final properties = Hotwire().config.pathConfiguration.properties(location);
     final decision = widget.session.decideNavigation(location);
+    _log('routeDecision $decision');
 
     switch (decision) {
       case RouteDecision.navigate:
@@ -134,20 +144,29 @@ class _HotwireWebViewState extends State<HotwireWebView> {
   }
 
   Future<void> _injectScripts() async {
-    await _controller.runJavaScript(bridgeJs);
-    await _controller.runJavaScript(turboJs);
+    try {
+      await _controller.runJavaScript(bridgeJs);
+      await _controller.runJavaScript(turboJs);
+    } catch (error) {
+      _log('injectScripts error=$error');
+    }
 
     final componentNames = _bridge.registeredComponentNames();
     if (componentNames.isNotEmpty) {
       final jsonNames = json.encode(componentNames);
-      await _controller.runJavaScript(
-        "window.nativeBridge.register($jsonNames)",
-      );
+      try {
+        await _controller.runJavaScript(
+          "window.nativeBridge.register($jsonNames)",
+        );
+      } catch (error) {
+        _log('registerComponents error=$error');
+      }
     }
   }
 
   void _handleBridgeMessage(String payload) {
     if (payload == 'ready') {
+      _log('bridge ready');
       return;
     }
     try {
@@ -156,16 +175,20 @@ class _HotwireWebViewState extends State<HotwireWebView> {
         _bridge.handleMessage(decoded);
       }
     } catch (_) {
-      // Ignore invalid payloads.
+      _log('bridge message decode failed');
     }
   }
 
   Future<void> _sendBridgeReply(BridgeMessage message) async {
     final reply = message.toMap();
     final jsonReply = json.encode(reply);
-    await _controller.runJavaScript(
-      "window.nativeBridge.replyWith($jsonReply)",
-    );
+    try {
+      await _controller.runJavaScript(
+        "window.nativeBridge.replyWith($jsonReply)",
+      );
+    } catch (error) {
+      _log('bridge reply error=$error');
+    }
   }
 
   @override
@@ -192,11 +215,18 @@ class _HotwireWebViewState extends State<HotwireWebView> {
   void _handleSessionError(VisitError error, void Function() retry) {
     _previousErrorHandler?.call(error, retry);
     if (mounted) {
+      _log('session error ${error.description}');
       setState(() {
         _error = error;
         _retry = retry;
         _isLoading = false;
       });
+    }
+  }
+
+  void _log(String message) {
+    if (Hotwire().config.debugLoggingEnabled) {
+      debugPrint('[HotwireWebView] $message');
     }
   }
 
