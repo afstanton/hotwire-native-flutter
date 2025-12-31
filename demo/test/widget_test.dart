@@ -69,6 +69,9 @@ class _TestWebViewController extends PlatformWebViewController {
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
 
   @override
+  Future<void> setUserAgent(String? userAgent) async {}
+
+  @override
   Future<void> addJavaScriptChannel(
     JavaScriptChannelParams javaScriptChannelParams,
   ) async {}

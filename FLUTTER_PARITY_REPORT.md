@@ -56,8 +56,8 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] BridgeComponent + factory registration
 - [x] Bridge dispatcher for components/factories
 - [x] JSON encode/decode hooks
-- [ ] WebView bridge injection (Turbo/Bridge JS)
-- [ ] Bridge replies over webview
+- [x] WebView bridge injection (Turbo/Bridge JS)
+- [x] Bridge replies over webview
 - [ ] User agent includes registered components + platform default UA
 - [ ] Bridge message format parity: {id, component, event, data, metadata.url}
 - [ ] Bridge lifecycle: connect/disconnect events for components
@@ -124,6 +124,8 @@ This document tracks feature parity between the Flutter library and the Android/
 - Turbo visit models implemented and tested.
 - Minimal session logic implemented and tested.
 - Minimal WebView widget using `webview_flutter` added to enable in-app navigation.
+- Turbo/Bridge JS injected into WebView and wired to Session/Bridge message flow.
+- Session now supports `visitWithOptions`, `restoreOrVisit`, snapshot cache hooks via a WebView adapter (no full lifecycle yet).
 - Demo app updated to match native demo layout and routing.
 
 ## Next Steps (No platform-specific code yet)

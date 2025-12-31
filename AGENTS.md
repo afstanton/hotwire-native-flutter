@@ -14,6 +14,8 @@ This file guides coding agents working in this repo. Keep changes parity‑drive
 - Check off items as they are completed, and keep the report current.
 - Prefer minimal, testable changes; add tests for new behavior.
 - Tests are required for parity-critical logic (bridge, session, path configuration, visit models).
+- Track coverage regularly: `flutter test --coverage` writes `coverage/lcov.info`.
+- Optional HTML report: `genhtml coverage/lcov.info -o coverage/html` (requires `lcov`).
 
 ## Code Conventions
 

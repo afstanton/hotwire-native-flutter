@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../hotwire.dart';
 import '../turbo/path_properties.dart';
+import '../turbo/visit/visit_action.dart';
 import '../turbo/visit/visit_options.dart';
 import '../turbo/visit/visit_proposal.dart';
 import 'route_decision.dart';
@@ -18,12 +19,19 @@ abstract class SessionDelegate {
   void sessionDidFailRequest(Session session, String errorMessage) {}
 }
 
+abstract class SessionWebViewAdapter {
+  Future<void> load(String url);
+  Future<void> runJavaScript(String javaScript);
+  Future<void> reload();
+}
+
 class Session {
   SessionDelegate? delegate;
   final TurboEventTracker _tracker = TurboEventTracker();
   final RouteDecisionHandler _routeDecisionHandler;
   bool _initialized = false;
   String? _lastVisitedLocation;
+  SessionWebViewAdapter? _adapter;
 
   Session({
     SessionDelegate? delegate,
@@ -36,6 +44,16 @@ class Session {
   void markInitialized() {
     _initialized = true;
     delegate?.sessionDidLoadWebView(this);
+  }
+
+  void attachWebView(SessionWebViewAdapter adapter) {
+    _adapter = adapter;
+  }
+
+  void detachWebView(SessionWebViewAdapter adapter) {
+    if (_adapter == adapter) {
+      _adapter = null;
+    }
   }
 
   void handleTurboMessage(String name, Map<String, dynamic> data) {
@@ -69,6 +87,63 @@ class Session {
       default:
         break;
     }
+  }
+
+  Future<void> visit(String location) async {
+    _lastVisitedLocation = location;
+    await _adapter?.load(location);
+  }
+
+  Future<void> visitWithOptions(
+    String location, {
+    VisitOptions options = const VisitOptions(),
+    String? restorationIdentifier,
+  }) async {
+    _lastVisitedLocation = location;
+    if (!_initialized) {
+      await visit(location);
+      return;
+    }
+
+    final optionsJson = json.encode({'action': options.action.name});
+    final restoration = json.encode(
+      restorationIdentifier ?? _tracker.lastRestorationIdentifier ?? '',
+    );
+    final locationJson = json.encode(location);
+
+    await _adapter?.runJavaScript(
+      "window.turboNative.visitLocationWithOptionsAndRestorationIdentifier($locationJson, $optionsJson, $restoration)",
+    );
+  }
+
+  Future<void> restoreOrVisit(String location) async {
+    final properties = Hotwire().config.pathConfiguration.properties(location);
+    if (shouldRestore(nextLocation: location, properties: properties)) {
+      await visitWithOptions(
+        location,
+        options: const VisitOptions(action: VisitAction.restore),
+      );
+      return;
+    }
+    await visit(location);
+  }
+
+  Future<void> cacheSnapshot() async {
+    if (!_initialized) {
+      return;
+    }
+    await _adapter?.runJavaScript("window.turboNative.cacheSnapshot()");
+  }
+
+  Future<void> clearSnapshotCache() async {
+    if (!_initialized) {
+      return;
+    }
+    await _adapter?.runJavaScript("window.turboNative.clearSnapshotCache()");
+  }
+
+  Future<void> reload() async {
+    await _adapter?.reload();
   }
 
   RouteDecision decideNavigation(String location) {

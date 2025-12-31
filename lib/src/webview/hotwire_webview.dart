@@ -38,6 +38,7 @@ class HotwireWebView extends StatefulWidget {
 class _HotwireWebViewState extends State<HotwireWebView> {
   late final WebViewController _controller;
   late final Bridge _bridge;
+  late final _WebViewAdapter _adapter;
   bool _isLoading = true;
 
   @override
@@ -79,6 +80,8 @@ class _HotwireWebViewState extends State<HotwireWebView> {
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
+    _adapter = _WebViewAdapter(controller: _controller);
+    widget.session.attachWebView(_adapter);
   }
 
   NavigationDecision _handleNavigation(NavigationRequest request) {
@@ -144,5 +147,32 @@ class _HotwireWebViewState extends State<HotwireWebView> {
         if (_isLoading) const Center(child: CircularProgressIndicator()),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    widget.session.detachWebView(_adapter);
+    super.dispose();
+  }
+}
+
+class _WebViewAdapter implements SessionWebViewAdapter {
+  final WebViewController controller;
+
+  _WebViewAdapter({required this.controller});
+
+  @override
+  Future<void> load(String url) {
+    return controller.loadRequest(Uri.parse(url));
+  }
+
+  @override
+  Future<void> reload() {
+    return controller.reload();
+  }
+
+  @override
+  Future<void> runJavaScript(String javaScript) {
+    return controller.runJavaScript(javaScript);
   }
 }

@@ -32,6 +32,27 @@ class SessionDelegateSpy extends SessionDelegate {
   }
 }
 
+class FakeWebViewAdapter implements SessionWebViewAdapter {
+  String? lastLoadedUrl;
+  String? lastJavaScript;
+  int reloadCount = 0;
+
+  @override
+  Future<void> load(String url) async {
+    lastLoadedUrl = url;
+  }
+
+  @override
+  Future<void> reload() async {
+    reloadCount += 1;
+  }
+
+  @override
+  Future<void> runJavaScript(String javaScript) async {
+    lastJavaScript = javaScript;
+  }
+}
+
 void main() {
   test('Session proposes visit with properties', () async {
     final configuration = Hotwire().config.pathConfiguration;
@@ -89,6 +110,35 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  test('Session visits with JS after initialization', () async {
+    final session = Session();
+    final adapter = FakeWebViewAdapter();
+    session.attachWebView(adapter);
+
+    session.markInitialized();
+    await session.visitWithOptions(
+      'https://example.com/items',
+      options: const VisitOptions(action: VisitAction.replace),
+    );
+
+    expect(adapter.lastLoadedUrl, isNull);
+    expect(
+      adapter.lastJavaScript,
+      contains('visitLocationWithOptionsAndRestorationIdentifier'),
+    );
+  });
+
+  test('Session performs cold boot load before initialization', () async {
+    final session = Session();
+    final adapter = FakeWebViewAdapter();
+    session.attachWebView(adapter);
+
+    await session.visitWithOptions('https://example.com/start');
+
+    expect(adapter.lastLoadedUrl, 'https://example.com/start');
+    expect(adapter.lastJavaScript, isNull);
   });
 }
 
