@@ -48,9 +48,9 @@ class _HotwireWebViewState extends State<HotwireWebView> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(
-        Hotwire()
-            .config
-            .buildUserAgent(components: _bridge.registeredComponentNames()),
+        Hotwire().config.buildUserAgent(
+          components: _bridge.registeredComponentNames(),
+        ),
       )
       ..addJavaScriptChannel(
         'HotwireNative',
