@@ -9,6 +9,7 @@ export 'src/session/route_decision.dart';
 export 'src/session/session.dart';
 export 'src/turbo/errors/visit_error.dart';
 export 'src/turbo/errors/ssl_error.dart';
+export 'src/turbo/historical_location.dart';
 export 'src/turbo/path_configuration.dart';
 export 'src/turbo/path_configuration_rule.dart';
 export 'src/turbo/path_properties.dart';

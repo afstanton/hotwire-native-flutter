@@ -1,3 +1,4 @@
+import '../historical_location.dart';
 import '../path_properties.dart';
 import 'visit_options.dart';
 
@@ -15,4 +16,13 @@ class VisitProposal {
   });
 
   PresentationContext get context => properties.context;
+
+  bool get isHistoricalLocation => properties.isHistoricalLocation;
+
+  HistoricalLocationAction? historicalLocationAction({required bool isModal}) {
+    return resolveHistoricalLocationAction(
+      properties: properties,
+      isModal: isModal,
+    );
+  }
 }

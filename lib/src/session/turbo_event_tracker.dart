@@ -47,6 +47,10 @@ class TurboEventTracker {
   String? get lastFormSubmissionLocation => _lastFormSubmissionLocation;
   bool get formSubmissionInProgress => _formSubmissionInProgress;
 
+  void setLastRestorationIdentifier(String? restorationIdentifier) {
+    _lastRestorationIdentifier = restorationIdentifier;
+  }
+
   void reset() {
     _visits.clear();
     _currentVisitIdentifier = null;

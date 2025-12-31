@@ -51,6 +51,62 @@ void main() {
     expect(properties['presentation'], 'pop');
   });
 
+  test('PathConfiguration parses tabs property', () async {
+    final configuration = PathConfiguration();
+    await _applySources(configuration, [
+      PathConfigurationSource.data(r'''
+      {
+        "rules": [
+          {
+            "patterns": ["/custom/tabs"],
+            "properties": {
+              "tabs": [
+                {"label": "Tab 1", "path": "/tab-1"}
+              ]
+            }
+          }
+        ]
+      }
+      '''),
+    ]);
+
+    final properties = configuration.properties(
+      'https://example.com/custom/tabs',
+    );
+    final tabs = properties.tabs;
+
+    expect(tabs, isNotNull);
+    expect(tabs?.length, 1);
+    expect(tabs?.first.label, 'Tab 1');
+    expect(tabs?.first.path, '/tab-1');
+  });
+
+  test('PathConfiguration parses modal properties', () async {
+    final configuration = PathConfiguration();
+    await _applySources(configuration, [
+      PathConfigurationSource.data(r'''
+      {
+        "rules": [
+          {
+            "patterns": ["/modal"],
+            "properties": {
+              "modal_style": "page_sheet",
+              "modal_dismiss_gesture_enabled": false,
+              "view_controller": "custom"
+            }
+          }
+        ]
+      }
+      '''),
+    ]);
+
+    final properties = configuration.properties('https://example.com/modal');
+
+    expect(properties.modalStyle, ModalStyle.pageSheet);
+    expect(properties.modalDismissGestureEnabled, isFalse);
+    expect(properties.viewController, 'custom');
+  });
+
   test('PathConfiguration reports invalid JSON errors', () async {
     final configuration = PathConfiguration();
     final error = await _errorFromSources(configuration, [

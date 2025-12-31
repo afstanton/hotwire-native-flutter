@@ -60,7 +60,7 @@ class BridgeMessage {
     'component': component,
     'event': event,
     'metadata': metadata?.toMap(),
-    'data': jsonData,
+    'data': _decodedData(),
   };
 
   BridgeMessage replacing({String? event, String? jsonData}) {
@@ -74,10 +74,15 @@ class BridgeMessage {
   }
 
   BridgeMessage replacingData(Object data, {String? event}) {
-    final encoder = Hotwire().config.bridgeJsonEncoder;
-    final encoded = encoder != null ? encoder(data) : data;
-    final jsonData = json.encode(encoded);
-    return replacing(event: event, jsonData: jsonData);
+    try {
+      final encoder = Hotwire().config.bridgeJsonEncoder;
+      final encoded = encoder != null ? encoder(data) : data;
+      final jsonData = json.encode(encoded);
+      return replacing(event: event, jsonData: jsonData);
+    } catch (error) {
+      _handleJsonError(error);
+      return replacing(event: event, jsonData: '{}');
+    }
   }
 
   T? data<T>() {
@@ -88,14 +93,33 @@ class BridgeMessage {
       }
       final decoder = Hotwire().config.bridgeJsonDecoder;
       if (decoder != null) {
-        final mapped = decoder(decoded);
-        if (mapped is T) {
-          return mapped as T;
+        try {
+          final mapped = decoder(decoded);
+          if (mapped is T) {
+            return mapped as T;
+          }
+        } catch (error) {
+          _handleJsonError(error);
+          return null;
         }
       }
       return null;
-    } catch (_) {
+    } catch (error) {
+      _handleJsonError(error);
       return null;
     }
+  }
+
+  Object? _decodedData() {
+    try {
+      return json.decode(jsonData);
+    } catch (error) {
+      _handleJsonError(error);
+      return jsonData;
+    }
+  }
+
+  void _handleJsonError(Object error) {
+    Hotwire().config.bridgeJsonErrorHandler?.call(error);
   }
 }

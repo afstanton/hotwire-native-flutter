@@ -230,7 +230,8 @@ class _WebTabState extends State<WebTab> {
     final uri = proposal.url;
     final handled = _handleNativeRoute(
       uri,
-      isModal: proposal.context == PresentationContext.modal || _isModalPath(uri),
+      isModal:
+          proposal.context == PresentationContext.modal || _isModalPath(uri),
     );
     if (handled) {
       return;

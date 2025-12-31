@@ -34,6 +34,12 @@ class TestFactory extends BridgeComponentFactory<TestComponent> {
 }
 
 void main() {
+  tearDown(() {
+    Hotwire().config.bridgeJsonEncoder = null;
+    Hotwire().config.bridgeJsonDecoder = null;
+    Hotwire().config.bridgeJsonErrorHandler = null;
+  });
+
   test('BridgeMessage replaces data with encoder', () {
     Hotwire().config.bridgeJsonEncoder = (data) => {'wrapped': data};
 
@@ -59,6 +65,56 @@ void main() {
 
     final data = message.data<Map<String, dynamic>>();
     expect(data?['title'], 'Hello');
+  });
+
+  test('BridgeMessage encodes data as object in map', () {
+    final message = BridgeMessage(
+      id: '1',
+      component: 'test',
+      event: 'update',
+      metadata: const BridgeMessageMetadata(url: 'https://example.com'),
+      jsonData: '{"title":"Hello"}',
+    );
+
+    final payload = message.toMap();
+
+    expect(payload['data'], isA<Map>());
+    expect((payload['data'] as Map)['title'], 'Hello');
+  });
+
+  test('BridgeMessage reports decode errors', () {
+    Object? error;
+    Hotwire().config.bridgeJsonErrorHandler = (err) => error = err;
+
+    final message = BridgeMessage(
+      id: '1',
+      component: 'test',
+      event: 'connect',
+      metadata: null,
+      jsonData: '{bad',
+    );
+
+    final data = message.data<Map<String, dynamic>>();
+    expect(data, isNull);
+    expect(error, isNotNull);
+  });
+
+  test('BridgeMessage reports encoder errors', () {
+    Object? error;
+    Hotwire().config.bridgeJsonErrorHandler = (err) => error = err;
+    Hotwire().config.bridgeJsonEncoder = (_) => throw StateError('bad');
+
+    final message = BridgeMessage(
+      id: '1',
+      component: 'test',
+      event: 'update',
+      metadata: null,
+      jsonData: '{}',
+    );
+
+    final replaced = message.replacingData({'value': 1});
+    expect(replaced.jsonData, '{}');
+    expect(error, isNotNull);
   });
 
   test('Bridge dispatches to registered components', () {

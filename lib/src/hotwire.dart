@@ -24,6 +24,9 @@ class HotwireConfig {
   /// Optional custom JSON encoder for bridge component payloads.
   BridgeJsonEncoder? bridgeJsonEncoder;
 
+  /// Optional error handler for bridge JSON encode/decode failures.
+  void Function(Object error)? bridgeJsonErrorHandler;
+
   /// WebView navigation policy manager.
   WebViewPolicyManager webViewPolicyManager = WebViewPolicyManager(
     handlers: [
@@ -32,6 +35,9 @@ class HotwireConfig {
       ExternalNavigationPolicyHandler(),
     ],
   );
+
+  /// Optional hook to configure the WebViewController as it's created.
+  void Function(Object controller)? webViewControllerConfigurator;
 
   /// Route decision chain for app navigation.
   RouteDecisionManager routeDecisionManager = RouteDecisionManager();

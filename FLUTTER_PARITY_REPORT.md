@@ -17,8 +17,8 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Debug logging flag (config flag only)
 - [ ] WebView default user agent integration (platform channel needed)
 - [ ] WebView debugging toggle (platform channel needed)
-- [ ] Custom webview factory / per-session webview configuration hook
-- [ ] Custom JSON encoder/decoder integration parity (naming strategies, errors surfaced)
+- [x] Custom webview factory / per-session webview configuration hook
+- [x] Custom JSON encoder/decoder integration parity (naming strategies, errors surfaced)
 
 ### Path configuration
 
@@ -31,7 +31,8 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Query string matching toggle
 - [x] Path configuration loader options (custom headers, URLSession config parity)
 - [x] Path configuration file format validation errors surfaced
-- [ ] Historical location behavior: recede/resume/refresh applied to navigation stack
+- [x] Historical location behavior: recede/resume/refresh applied to navigation stack
+  - Helper action provided for apps to apply (dismiss modal + presentation)
 
 ### Path properties helpers
 
@@ -39,8 +40,8 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] `context` parsing (default, modal)
 - [x] `query_string_presentation` parsing
 - [x] `uri`, `fallback_uri`, `title`, `pull_to_refresh_enabled`, `animated`, `historical_location`
-- [ ] Additional typed helpers used by native libs (if any emerge)
-- [ ] Tabs property parsing (custom tab overrides from path config)
+- [x] Additional typed helpers used by native libs (modal style, dismiss gesture, view controller)
+- [x] Tabs property parsing (custom tab overrides from path config)
 
 ### Turbo visit models
 
@@ -58,8 +59,8 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] JSON encode/decode hooks
 - [x] WebView bridge injection (Turbo/Bridge JS)
 - [x] Bridge replies over webview
-- [ ] User agent includes registered components + platform default UA
-- [ ] Bridge message format parity: {id, component, event, data, metadata.url}
+- [ ] User agent includes registered components + platform default UA (platform channel needed)
+- [x] Bridge message format parity: {id, component, event, data, metadata.url}
 - [x] Bridge lifecycle: connect/disconnect events for components
 
 ### Session core
@@ -72,13 +73,13 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Snapshot cache / restore integration (basic hooks)
 - [x] Page invalidation + reload behavior
 - [x] Non-HTTP error redirect handling (delegate hook)
-- [ ] Session delegate parity (complete list vs iOS/Android)
+- [ ] Session delegate parity (complete list vs iOS/Android; remaining items are platform channel)
   - [x] Cross-origin redirect proposal callback
   - [ ] WebView process termination callback (platform channel needed)
   - [ ] HTTP auth challenge handling (platform channel needed)
 - [x] Form submission lifecycle: start/finish hooks toggle progress UI
 - [x] Page load failed / errorRaised propagation
-- [ ] Restoration identifiers tracked per visitable
+- [x] Restoration identifiers tracked per visitable
 - [x] Session reset + cold boot behavior
 
 ### WebView policy / routing
@@ -88,7 +89,7 @@ This document tracks feature parity between the Flutter library and the Android/
 - [ ] Reload policy (platform channel needed)
 - [x] Link activated policy (basic)
 - [x] App navigation policy handler chain (basic manager)
-- [ ] Modal presentation rules from path config (context + presentation)
+- [x] Modal presentation rules from path config (context + presentation)
 
 ### Errors
 
@@ -99,17 +100,17 @@ This document tracks feature parity between the Flutter library and the Android/
 
 ### Offline caching
 
-- [ ] Offline request handler + pre-cache API
-- [ ] Offline cache strategy
-- [ ] Offline request interception
-- [ ] Offline cache persistence policy (eviction, cache key)
+- [ ] Offline request handler + pre-cache API (platform channel needed)
+- [ ] Offline cache strategy (platform channel needed)
+- [ ] Offline request interception (platform channel needed)
+- [ ] Offline cache persistence policy (eviction, cache key) (platform channel needed)
 
 ### File chooser / geolocation
 
 - [ ] File chooser delegate (platform channel needed)
 - [ ] Camera capture delegate (platform channel needed)
 - [ ] Geolocation permission delegate (platform channel needed)
-- [ ] MIME type filters and multiple file selection
+- [ ] MIME type filters and multiple file selection (platform channel needed)
 
 ## Demo App Parity Checklist
 
@@ -155,6 +156,7 @@ This document tracks feature parity between the Flutter library and the Android/
 - Reload policy
 - WebView process termination callback
 - HTTP auth challenge handling
+- Offline cache + request interception
 - File chooser delegate
 - Camera capture delegate
 - Geolocation permission delegate

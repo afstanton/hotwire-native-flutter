@@ -122,6 +122,13 @@ class FakeWebViewAdapter implements SessionWebViewAdapter {
   }
 }
 
+class TestVisitable implements SessionVisitable {
+  @override
+  final String visitableIdentifier;
+
+  TestVisitable(this.visitableIdentifier);
+}
+
 void main() {
   test('Session proposes visit with properties', () async {
     final configuration = Hotwire().config.pathConfiguration;
@@ -199,6 +206,16 @@ void main() {
     );
 
     expect(decision, RouteDecision.navigate);
+  });
+
+  test('Default route decision delegates presentation rules', () {
+    final decision = defaultRouteDecision(
+      location: 'https://example.com/recede',
+      properties: const {'presentation': 'pop'},
+      initialized: true,
+    );
+
+    expect(decision, RouteDecision.delegate);
   });
 
   test('Session forwards page load failures and errors', () {
@@ -410,6 +427,36 @@ void main() {
     session.handleCrossOriginRedirect('https://other.example.com/items');
 
     expect(delegate.lastCrossOriginLocation, 'https://other.example.com/items');
+  });
+
+  test('Session stores restoration identifiers per visitable', () {
+    final session = Session();
+    final visitable = TestVisitable('visitable-1');
+
+    session.attachVisitable(visitable);
+    session.handleTurboMessage('pageLoaded', {
+      'restorationIdentifier': 'rest-1',
+    });
+
+    expect(session.restorationIdentifierForVisitable(visitable), 'rest-1');
+  });
+
+  test('Session reuses visitable restoration identifiers for visits', () async {
+    final session = Session();
+    final adapter = FakeWebViewAdapter();
+    session.attachWebView(adapter);
+    session.markInitialized();
+
+    final visitable = TestVisitable('visitable-1');
+    session.storeRestorationIdentifierForVisitable(visitable, 'rest-1');
+    session.attachVisitable(visitable);
+
+    await session.visitWithOptions(
+      'https://example.com/items',
+      options: const VisitOptions(action: VisitAction.restore),
+    );
+
+    expect(adapter.lastJavaScript, contains('rest-1'));
   });
 }
 

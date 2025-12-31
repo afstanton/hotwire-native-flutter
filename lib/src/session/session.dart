@@ -49,6 +49,10 @@ abstract class SessionDelegate {
   void sessionDidFinishPage(Session session, String location) {}
 }
 
+abstract class SessionVisitable {
+  String get visitableIdentifier;
+}
+
 abstract class SessionWebViewAdapter {
   Future<void> load(String url);
   Future<void> runJavaScript(String javaScript);
@@ -63,6 +67,8 @@ class Session {
   String? _lastVisitedLocation;
   SessionWebViewAdapter? _adapter;
   final Map<String, String> _restorationIdentifiers = {};
+  final Map<String, String> _visitableRestorationIdentifiers = {};
+  String? _currentVisitableId;
   void Function(VisitError error, void Function() retry)? onError;
 
   Session({
@@ -82,6 +88,8 @@ class Session {
     _initialized = false;
     _lastVisitedLocation = null;
     _restorationIdentifiers.clear();
+    _visitableRestorationIdentifiers.clear();
+    _currentVisitableId = null;
     _tracker.reset();
   }
 
@@ -131,6 +139,7 @@ class Session {
         final restorationIdentifier = data['restorationIdentifier'];
         if (identifier is String && restorationIdentifier is String) {
           _restorationIdentifiers[identifier] = restorationIdentifier;
+          _storeRestorationIdentifierForCurrentVisitable(restorationIdentifier);
         }
         if (identifier is String) {
           delegate?.sessionDidCompleteVisit(
@@ -138,6 +147,13 @@ class Session {
             identifier,
             restorationIdentifier?.toString(),
           );
+        }
+        break;
+      case 'pageLoaded':
+        final restorationIdentifier = data['restorationIdentifier'];
+        if (restorationIdentifier is String &&
+            restorationIdentifier.isNotEmpty) {
+          _storeRestorationIdentifierForCurrentVisitable(restorationIdentifier);
         }
         break;
       case 'visitRequestFailedWithNonHttpStatusCode':
@@ -325,6 +341,33 @@ class Session {
     return _restorationIdentifiers[visitIdentifier];
   }
 
+  void attachVisitable(SessionVisitable visitable) {
+    _currentVisitableId = visitable.visitableIdentifier;
+    final restorationIdentifier =
+        _visitableRestorationIdentifiers[visitable.visitableIdentifier];
+    if (restorationIdentifier != null) {
+      _tracker.setLastRestorationIdentifier(restorationIdentifier);
+    }
+  }
+
+  void detachVisitable(SessionVisitable visitable) {
+    if (_currentVisitableId == visitable.visitableIdentifier) {
+      _currentVisitableId = null;
+    }
+  }
+
+  String? restorationIdentifierForVisitable(SessionVisitable visitable) {
+    return _visitableRestorationIdentifiers[visitable.visitableIdentifier];
+  }
+
+  void storeRestorationIdentifierForVisitable(
+    SessionVisitable visitable,
+    String restorationIdentifier,
+  ) {
+    _visitableRestorationIdentifiers[visitable.visitableIdentifier] =
+        restorationIdentifier;
+  }
+
   bool shouldRestore({
     required String nextLocation,
     required Map<String, dynamic> properties,
@@ -411,5 +454,15 @@ class Session {
       // ignore: avoid_print
       print('[Session] $message');
     }
+  }
+
+  void _storeRestorationIdentifierForCurrentVisitable(
+    String restorationIdentifier,
+  ) {
+    final visitableId = _currentVisitableId;
+    if (visitableId == null) {
+      return;
+    }
+    _visitableRestorationIdentifiers[visitableId] = restorationIdentifier;
   }
 }

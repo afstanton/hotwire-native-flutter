@@ -24,6 +24,10 @@ RouteDecision defaultRouteDecision({
   if (properties.context == PresentationContext.modal) {
     return RouteDecision.delegate;
   }
+
+  if (properties.presentation != Presentation.defaultValue) {
+    return RouteDecision.delegate;
+  }
   return RouteDecision.navigate;
 }
 

@@ -24,6 +24,7 @@ class HotwireWebView extends StatefulWidget {
   final Bridge? bridge;
   final HotwireRouteRequestCallback? onRouteRequest;
   final HotwireExternalNavigationCallback? onExternalNavigation;
+  final void Function(WebViewController controller)? onWebViewCreated;
 
   const HotwireWebView({
     required this.url,
@@ -31,6 +32,7 @@ class HotwireWebView extends StatefulWidget {
     this.bridge,
     this.onRouteRequest,
     this.onExternalNavigation,
+    this.onWebViewCreated,
     super.key,
   });
 
@@ -93,6 +95,8 @@ class _HotwireWebViewState extends State<HotwireWebView> {
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
+    Hotwire().config.webViewControllerConfigurator?.call(_controller);
+    widget.onWebViewCreated?.call(_controller);
     _adapter = _WebViewAdapter(controller: _controller);
     widget.session.attachWebView(_adapter);
     _previousErrorHandler = widget.session.onError;
@@ -100,9 +104,7 @@ class _HotwireWebViewState extends State<HotwireWebView> {
   }
 
   NavigationDecision _handleNavigation(NavigationRequest request) {
-    _log(
-      'navRequest url=${request.url} isMainFrame=${request.isMainFrame}',
-    );
+    _log('navRequest url=${request.url} isMainFrame=${request.isMainFrame}');
     final policyDecision = Hotwire().config.webViewPolicyManager.decide(
       WebViewPolicyRequest(
         url: request.url,
