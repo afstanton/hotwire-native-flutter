@@ -58,7 +58,7 @@ class NavigationStack {
 
   NavigationStack({String? startLocation}) : _startLocation = startLocation {
     if (_startLocation != null) {
-      _mainStack.add(_startLocation!);
+      _mainStack.add(_startLocation);
     }
   }
 
@@ -73,12 +73,14 @@ class NavigationStack {
     VisitOptions? options,
   }) {
     final resolvedProperties = Map<String, dynamic>.from(properties);
-    final targetContext = resolvedProperties.context == PresentationContext.modal
+    final targetContext =
+        resolvedProperties.context == PresentationContext.modal
         ? NavigationStackType.modal
         : NavigationStackType.main;
     final isModalActive = _modalStack.isNotEmpty;
-    final currentContext =
-        isModalActive ? NavigationStackType.modal : NavigationStackType.main;
+    final currentContext = isModalActive
+        ? NavigationStackType.modal
+        : NavigationStackType.main;
     final presentation = _resolvePresentation(
       location: location,
       properties: resolvedProperties,

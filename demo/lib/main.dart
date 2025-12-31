@@ -204,7 +204,10 @@ class _MainScreenState extends State<MainScreen> {
 
 class WebTab extends StatefulWidget {
   final String url;
-  final void Function(Session modalSession, InAppWebViewKeepAlive modalKeepAlive)
+  final void Function(
+    Session modalSession,
+    InAppWebViewKeepAlive modalKeepAlive,
+  )
   onOpenNumbers;
   final void Function(
     String url,
@@ -388,11 +391,7 @@ class _WebTabState extends State<WebTab> {
     }
 
     if (_isNumbersDetail(uri) || isModal) {
-      widget.onOpenModalWeb(
-        uri.toString(),
-        _modalSession,
-        _modalKeepAlive,
-      );
+      widget.onOpenModalWeb(uri.toString(), _modalSession, _modalKeepAlive);
       return true;
     }
 

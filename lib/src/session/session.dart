@@ -91,8 +91,7 @@ class Session {
            (Hotwire().config.startLocation == null
                ? null
                : NavigationStack(
-                   startLocation:
-                       Hotwire().config.startLocation?.toString(),
+                   startLocation: Hotwire().config.startLocation?.toString(),
                  ));
 
   bool get isInitialized => _initialized;
@@ -624,7 +623,9 @@ class Session {
       request.followRedirects = false;
       final response = await request.close();
       if (response.isRedirect) {
-        final redirectValue = response.headers.value(HttpHeaders.locationHeader);
+        final redirectValue = response.headers.value(
+          HttpHeaders.locationHeader,
+        );
         if (redirectValue != null) {
           final redirect = Uri.tryParse(redirectValue);
           if (redirect != null) {

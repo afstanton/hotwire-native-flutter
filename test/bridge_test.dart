@@ -186,13 +186,16 @@ void main() {
     expect(replied?.id, '99');
   });
 
-  test('BridgeComponent async reply returns false when missing message', () async {
-    final component = TestComponent();
+  test(
+    'BridgeComponent async reply returns false when missing message',
+    () async {
+      final component = TestComponent();
 
-    final didReply = await component.replyToAsync('missing');
+      final didReply = await component.replyToAsync('missing');
 
-    expect(didReply, isFalse);
-  });
+      expect(didReply, isFalse);
+    },
+  );
 
   test('BridgeComponent async reply uses delegate', () async {
     final bridge = Bridge();

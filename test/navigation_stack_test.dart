@@ -21,10 +21,7 @@ void main() {
 
   test('NavigationStack replaces when routing to same location', () {
     final stack = NavigationStack(startLocation: 'https://example.com/home');
-    stack.route(
-      location: 'https://example.com/features',
-      properties: const {},
-    );
+    stack.route(location: 'https://example.com/features', properties: const {});
 
     final instruction = stack.route(
       location: 'https://example.com/features',
@@ -84,10 +81,7 @@ void main() {
 
   test('NavigationStack refreshes previous location', () {
     final stack = NavigationStack(startLocation: 'https://example.com/home');
-    stack.route(
-      location: 'https://example.com/features',
-      properties: const {},
-    );
+    stack.route(location: 'https://example.com/features', properties: const {});
 
     final instruction = stack.route(
       location: 'https://example.com/refresh_historical_location',
@@ -101,10 +95,7 @@ void main() {
 
   test('NavigationStack reset restores start location', () {
     final stack = NavigationStack(startLocation: 'https://example.com/home');
-    stack.route(
-      location: 'https://example.com/features',
-      properties: const {},
-    );
+    stack.route(location: 'https://example.com/features', properties: const {});
 
     stack.reset();
 
@@ -134,10 +125,7 @@ void main() {
 
   test('NavigationStack clearAll resets to new root', () {
     final stack = NavigationStack(startLocation: 'https://example.com/home');
-    stack.route(
-      location: 'https://example.com/features',
-      properties: const {},
-    );
+    stack.route(location: 'https://example.com/features', properties: const {});
 
     final instruction = stack.route(
       location: 'https://example.com/new-home',
@@ -151,10 +139,7 @@ void main() {
 
   test('NavigationStack replaceRoot resets main stack', () {
     final stack = NavigationStack(startLocation: 'https://example.com/home');
-    stack.route(
-      location: 'https://example.com/features',
-      properties: const {},
-    );
+    stack.route(location: 'https://example.com/features', properties: const {});
 
     final instruction = stack.route(
       location: 'https://example.com/new-root',
@@ -194,21 +179,24 @@ void main() {
     expect(stack.state.modalStack, isEmpty);
   });
 
-  test('NavigationStack refresh pops modal and refreshes main when single modal', () {
-    final stack = NavigationStack(startLocation: 'https://example.com/home');
-    stack.route(
-      location: 'https://example.com/modal/new',
-      properties: const {'context': 'modal'},
-    );
+  test(
+    'NavigationStack refresh pops modal and refreshes main when single modal',
+    () {
+      final stack = NavigationStack(startLocation: 'https://example.com/home');
+      stack.route(
+        location: 'https://example.com/modal/new',
+        properties: const {'context': 'modal'},
+      );
 
-    final instruction = stack.route(
-      location: 'https://example.com/refresh_historical_location',
-      properties: const {'presentation': 'refresh'},
-    );
+      final instruction = stack.route(
+        location: 'https://example.com/refresh_historical_location',
+        properties: const {'presentation': 'refresh'},
+      );
 
-    expect(instruction.action, NavigationAction.refresh);
-    expect(instruction.didDismissModal, isTrue);
-    expect(instruction.refreshLocation, 'https://example.com/home');
-    expect(stack.state.modalStack, isEmpty);
-  });
+      expect(instruction.action, NavigationAction.refresh);
+      expect(instruction.didDismissModal, isTrue);
+      expect(instruction.refreshLocation, 'https://example.com/home');
+      expect(stack.state.modalStack, isEmpty);
+    },
+  );
 }

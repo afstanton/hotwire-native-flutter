@@ -174,9 +174,7 @@ class _HotwireWebViewState extends State<HotwireWebView> {
       return NavigationActionPolicy.CANCEL;
     }
 
-    if (!widget.session.isInitialized &&
-        isMainFrame &&
-        url != _initialUrl) {
+    if (!widget.session.isInitialized && isMainFrame && url != _initialUrl) {
       final optionsJson = json.encode({'action': 'replace'});
       widget.session.proposeVisitFromJson(url, optionsJson);
       return NavigationActionPolicy.CANCEL;
@@ -309,7 +307,8 @@ class _HotwireWebViewState extends State<HotwireWebView> {
       components: _bridge.registeredComponentNames(),
     );
 
-    final webView = widget.webViewOverride ??
+    final webView =
+        widget.webViewOverride ??
         InAppWebView(
           initialUrlRequest: URLRequest(url: WebUri(widget.url)),
           initialSettings: InAppWebViewSettings(

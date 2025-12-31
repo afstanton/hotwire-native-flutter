@@ -70,7 +70,9 @@ class HotwireConfig {
     handlers: [
       appNavigationRouteDecisionHandler(() => Hotwire().config.startLocation),
       browserTabRouteDecisionHandler(() => Hotwire().config.startLocation),
-      systemNavigationRouteDecisionHandler(() => Hotwire().config.startLocation),
+      systemNavigationRouteDecisionHandler(
+        () => Hotwire().config.startLocation,
+      ),
     ],
   );
 

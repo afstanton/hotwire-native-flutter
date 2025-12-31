@@ -242,8 +242,7 @@ void main() {
   test('Session forwards non-http failures for redirect handling', () {
     final delegate = SessionDelegateSpy();
     final session = Session(delegate: delegate);
-    Hotwire().config.crossOriginRedirectResolver =
-        (_) async => null;
+    Hotwire().config.crossOriginRedirectResolver = (_) async => null;
     addTearDown(() {
       Hotwire().config.crossOriginRedirectResolver = null;
     });
@@ -261,8 +260,8 @@ void main() {
   test('Session proposes cross-origin redirects after verification', () async {
     final delegate = SessionDelegateSpy();
     final session = Session(delegate: delegate);
-    Hotwire().config.crossOriginRedirectResolver =
-        (location) async => Uri.parse('https://other.example.com/redirect');
+    Hotwire().config.crossOriginRedirectResolver = (location) async =>
+        Uri.parse('https://other.example.com/redirect');
     addTearDown(() {
       Hotwire().config.crossOriginRedirectResolver = null;
     });
@@ -274,7 +273,10 @@ void main() {
 
     await Future<void>.delayed(Duration.zero);
 
-    expect(delegate.lastCrossOriginLocation, 'https://other.example.com/redirect');
+    expect(
+      delegate.lastCrossOriginLocation,
+      'https://other.example.com/redirect',
+    );
   });
 
   test('Session compares locations with query string presentation', () {

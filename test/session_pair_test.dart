@@ -5,7 +5,13 @@ void main() {
   test('HotwireSessionPair selects sessions by context', () {
     final pair = HotwireSessionPair();
 
-    expect(pair.sessionForContext(PresentationContext.defaultValue), pair.mainSession);
-    expect(pair.sessionForContext(PresentationContext.modal), pair.modalSession);
+    expect(
+      pair.sessionForContext(PresentationContext.defaultValue),
+      pair.mainSession,
+    );
+    expect(
+      pair.sessionForContext(PresentationContext.modal),
+      pair.modalSession,
+    );
   });
 }
