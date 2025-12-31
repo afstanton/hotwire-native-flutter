@@ -1,122 +1,316 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const DemoApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+enum DemoEnvironment { remote, local }
 
-  // This widget is the root of your application.
+class DemoConfig {
+  static const DemoEnvironment current = DemoEnvironment.remote;
+
+  static String get baseUrl {
+    if (current == DemoEnvironment.remote) {
+      return "https://hotwire-native-demo.dev";
+    }
+    return Platform.isAndroid
+        ? "http://10.0.2.2:3000"
+        : "http://localhost:3000";
+  }
+}
+
+class DemoTab {
+  final String title;
+  final IconData icon;
+  final String url;
+
+  const DemoTab({required this.title, required this.icon, required this.url});
+}
+
+class DemoApp extends StatelessWidget {
+  const DemoApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: "Hotwire Native Demo",
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MainScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _MainScreenState extends State<MainScreen> {
+  int _selectedIndex = 0;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  List<DemoTab> get _tabs {
+    final baseUrl = DemoConfig.baseUrl;
+    final tabs = <DemoTab>[
+      DemoTab(title: "Navigation", icon: Icons.swap_horiz, url: baseUrl),
+      DemoTab(
+        title: "Bridge Components",
+        icon: Icons.widgets,
+        url: "$baseUrl/components",
+      ),
+      DemoTab(
+        title: "Resources",
+        icon: Icons.menu_book,
+        url: "$baseUrl/resources",
+      ),
+    ];
+
+    if (DemoConfig.current == DemoEnvironment.local) {
+      tabs.add(
+        DemoTab(
+          title: "Bugs & Fixes",
+          icon: Icons.bug_report,
+          url: "$baseUrl/bugs",
+        ),
+      );
+    }
+    return tabs;
+  }
+
+  void _openNumbersScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NumbersScreen(baseUrl: DemoConfig.baseUrl),
+      ),
+    );
+  }
+
+  void _openModalWeb(String url) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => WebScreen(url: url, title: "Details", isModal: true),
+      ),
+    );
+  }
+
+  void _openImageViewer(String url) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ImageViewerScreen(url: url),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final tabs = _tabs;
+
+    return Scaffold(
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          for (final tab in tabs)
+            WebTab(
+              url: tab.url,
+              onOpenNumbers: _openNumbersScreen,
+              onOpenModalWeb: _openModalWeb,
+              onOpenImage: _openImageViewer,
+            ),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        items: [
+          for (final tab in tabs)
+            BottomNavigationBarItem(icon: Icon(tab.icon), label: tab.title),
+        ],
+      ),
+    );
+  }
+}
+
+class WebTab extends StatefulWidget {
+  final String url;
+  final VoidCallback onOpenNumbers;
+  final void Function(String url) onOpenModalWeb;
+  final void Function(String url) onOpenImage;
+
+  const WebTab({
+    required this.url,
+    required this.onOpenNumbers,
+    required this.onOpenModalWeb,
+    required this.onOpenImage,
+    super.key,
+  });
+
+  @override
+  State<WebTab> createState() => _WebTabState();
+}
+
+class _WebTabState extends State<WebTab> {
+  late final Session _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _session = Session();
+  }
+
+  void _handleRouteRequest(String location, Map<String, dynamic> properties) {
+    final uri = Uri.tryParse(location);
+    if (uri == null) {
+      return;
+    }
+
+    if (_isNumbersIndex(uri)) {
+      widget.onOpenNumbers();
+      return;
+    }
+
+    if (_isNumbersDetail(uri) || _isModalPath(uri)) {
+      widget.onOpenModalWeb(uri.toString());
+      return;
+    }
+
+    if (_isImageUrl(uri)) {
+      widget.onOpenImage(uri.toString());
+      return;
+    }
+  }
+
+  bool _isNumbersIndex(Uri uri) {
+    if (uri.scheme == "hotwire" && uri.host == "fragment") {
+      return uri.path == "/numbers";
+    }
+    return uri.path == "/numbers";
+  }
+
+  bool _isNumbersDetail(Uri uri) {
+    if (uri.pathSegments.length != 2) {
+      return false;
+    }
+    if (uri.pathSegments.first != "numbers") {
+      return false;
+    }
+    return int.tryParse(uri.pathSegments[1]) != null;
+  }
+
+  bool _isModalPath(Uri uri) {
+    final path = uri.path;
+    return path.endsWith("/new") ||
+        path.endsWith("/edit") ||
+        path.contains("/modal");
+  }
+
+  bool _isImageUrl(Uri uri) {
+    final path = uri.path.toLowerCase();
+    return path.endsWith(".bmp") ||
+        path.endsWith(".gif") ||
+        path.endsWith(".heic") ||
+        path.endsWith(".jpg") ||
+        path.endsWith(".jpeg") ||
+        path.endsWith(".png") ||
+        path.endsWith(".svg") ||
+        path.endsWith(".webp");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HotwireWebView(
+      url: widget.url,
+      session: _session,
+      onRouteRequest: _handleRouteRequest,
+    );
+  }
+}
+
+class WebScreen extends StatelessWidget {
+  final String url;
+  final String title;
+  final bool isModal;
+
+  const WebScreen({
+    required this.url,
+    required this.title,
+    this.isModal = false,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text(title),
+        leading: isModal ? const CloseButton() : null,
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
+      body: HotwireWebView(url: url, session: Session()),
+    );
+  }
+}
+
+class NumbersScreen extends StatelessWidget {
+  final String baseUrl;
+
+  const NumbersScreen({required this.baseUrl, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Numbers")),
+      body: ListView.separated(
+        itemCount: 100,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final number = index + 1;
+          return ListTile(
+            title: Text("Row $number"),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              final url = "$baseUrl/numbers/$number";
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  fullscreenDialog: true,
+                  builder: (_) => WebScreen(
+                    url: url,
+                    title: "Number $number",
+                    isModal: true,
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+class ImageViewerScreen extends StatelessWidget {
+  final String url;
+
+  const ImageViewerScreen({required this.url, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        leading: const CloseButton(),
       ),
+      body: Center(child: InteractiveViewer(child: Image.network(url))),
     );
   }
 }
