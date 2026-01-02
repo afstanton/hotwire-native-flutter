@@ -102,6 +102,18 @@ This document reflects current Flutter implementation status versus the Android/
 - [ ] Navigator execution layer integration tests
 - [ ] Platform integration tests (file chooser, geolocation, auth, offline)
 
+## Platform Smoke Tests (Manual)
+
+Use these to validate platform-channel features on iOS and Android before deeper integration tests.
+
+- [ ] File chooser (single) opens picker from a file input
+- [ ] File chooser (multiple) returns multiple file paths when allowed
+- [ ] MIME filters respected (e.g., accept `image/*`, `.pdf`)
+- [ ] Camera capture (`capture=true`) opens camera and returns captured path
+- [ ] Geolocation prompt appears when requested and response is applied
+- [ ] HTTP auth challenge shows prompt and applies credentials
+- [ ] Offline response hook returns cached response when network is blocked
+
 ## Reference Files
 
 - Android core: `hotwire-native-android/core/src/main/kotlin/dev/hotwire/core`
