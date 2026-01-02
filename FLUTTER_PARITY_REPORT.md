@@ -1,231 +1,402 @@
-# Hotwire Native Flutter Parity Report
+# Hotwired Native Flutter Parity Checklist
 
-This document tracks feature parity between the Flutter library and the Android/iOS reference implementations. It lists the functionality provided by the native libraries, what is currently implemented in Flutter, and what remains.
+This document tracks concrete implementation tasks needed to achieve feature parity with Android and iOS reference implementations.
 
-## Scope
+## Overall Status
 
-- Flutter library parity with Hotwire Native Android/iOS.
-- Demo app parity only for features present in Android/iOS demo apps.
-- Avoid extra features not present in native references.
+**Parity**: ~64% (7/11 major feature areas complete)
 
-## Reference Feature Checklist
+**Critical Blocker**: Navigation execution layer
 
-### Core configuration
+---
 
-- [x] Global configuration entrypoint (Hotwire config)
-- [x] Custom user agent prefix + component list
-- [x] Debug logging flag (config flag only)
-- [ ] WebView default user agent integration (platform channel needed)
-- [ ] WebView debugging toggle (platform channel needed)
-- [x] Custom webview factory / per-session webview configuration hook
-- [x] Custom JSON encoder/decoder integration parity (naming strategies, errors surfaced)
+## 🔴 CRITICAL: Navigation Implementation (40% Complete)
 
-### Path configuration
+### Navigator Core
 
-- [x] Load configuration from data source
-- [x] Load configuration from asset file
-- [x] Load configuration from remote server with caching
-- [x] Default server route rules (historical location routes)
-- [x] Path rule matching with regex patterns
-- [x] Settings map parsing
-- [x] Query string matching toggle
-- [x] Path configuration loader options (custom headers, URLSession config parity)
-- [x] Path configuration file format validation errors surfaced
-- [x] Historical location behavior: recede/resume/refresh applied to navigation stack
-  - Helper action provided for apps to apply (dismiss modal + presentation)
+- [ ] Create `HotwireNavigator` class
+  - [ ] Manage main Navigator 2.0 router delegate
+  - [ ] Manage modal Navigator 2.0 router delegate
+  - [ ] Implement session coordination (attach/detach during navigation)
+  - [ ] Track active visitable during navigation transitions
+  - [ ] Implement `NavigatorDelegate` pattern for custom controllers
 
-### Path properties helpers
+- [ ] Implement `NavigationHierarchyController` equivalent
+  - [ ] Route execution based on `NavigationInstruction` from `NavigationStack`
+  - [ ] Handle push operations with animation control
+  - [ ] Handle replace operations
+  - [ ] Handle pop operations (main vs modal context aware)
+  - [ ] Handle clearAll (dismiss modal + pop to root)
+  - [ ] Handle replaceRoot
+  - [ ] Handle refresh (per-context awareness)
+  - [ ] Handle none (no-op)
 
-- [x] `presentation` parsing (default, clear_all, replace_root, replace, pop, none, refresh)
-- [x] `context` parsing (default, modal)
-- [x] `query_string_presentation` parsing
-- [x] `uri`, `fallback_uri`, `title`, `pull_to_refresh_enabled`, `animated`, `historical_location`
-- [x] Additional typed helpers used by native libs (modal style, dismiss gesture, view controller)
-- [x] Tabs property parsing (custom tab overrides from path config)
+- [ ] Modal presentation logic
+  - [ ] Present modal navigation stack
+  - [ ] Dismiss modal with animation
+  - [ ] Modal style configuration (from path properties)
+  - [ ] Detect if in modal context
 
-### Turbo visit models
+- [ ] Route building integration
+  - [ ] Build MaterialPageRoute/CupertinoPageRoute based on platform
+  - [ ] Animation configuration based on VisitAction (advance = push animation, restore = no animation)
+  - [ ] Custom route builder delegate for native screens
 
-- [x] VisitAction (advance, replace, restore)
-- [x] VisitOptions (action, snapshotHTML, response)
-- [x] VisitResponse (statusCode, redirected, responseHTML)
-- [x] VisitProposal (url, options, properties, parameters)
-- [x] Visit state modeling (started, rendered, completed, failed)
+- [ ] Session lifecycle integration
+  - [ ] Attach session WebView to active visitable
+  - [ ] Detach session WebView when navigating away
+  - [ ] Handle session switching between main and modal
+  - [ ] Coordinate snapshot cache during navigation
 
-### Bridge
+- [ ] Historical location routing
+  - [ ] Implement `refreshIfTopViewControllerIsVisitable` equivalent
+  - [ ] Apply historical location actions (recede/resume/refresh)
+  - [ ] Dismiss modal on historical location when needed
 
-- [x] BridgeMessage model + metadata + replacement
-- [x] BridgeComponent + factory registration
-- [x] Bridge dispatcher for components/factories
+### Navigator Tests
+
+- [ ] Test navigation hierarchy (push/pop/replace)
+- [ ] Test modal presentation and dismissal
+- [ ] Test clearAll behavior
+- [ ] Test replaceRoot behavior
+- [ ] Test refresh in different contexts
+- [ ] Test session coordination during navigation
+- [ ] Test custom controller delegation
+- [ ] Test animation control
+- [ ] Test historical location routing
+- [ ] Integration tests with demo app flows
+
+### Reference Files to Study
+
+- iOS: [Navigator.swift](file:///Users/afstanton/code/hotwired/hotwire-native-ios/Source/Turbo/Navigator/Navigator.swift) (365 lines)
+- iOS: [NavigationHierarchyController.swift](file:///Users/afstanton/code/hotwired/hotwire-native-ios/Source/Turbo/Navigator/NavigationHierarchyController.swift) (241 lines)
+- Android: Fragment transaction management patterns
+
+---
+
+## 🟡 HIGH PRIORITY: Platform Channel Features
+
+### File Upload Support
+
+- [ ] Implement platform channel for file chooser
+  - [ ] Android: Hook into WebChromeClient.onShowFileChooser
+  - [ ] iOS: Hook into WKUIDelegate.runOpenPanelWithParameters
+  - [ ] Dart: File picker integration (file_picker package)
+
+- [ ] File chooser features
+  - [ ] MIME type filtering (acceptTypes)
+  - [ ] Multiple file selection
+  - [ ] Camera capture mode
+  - [ ] Return file paths to WebView
+
+- [ ] URI helper utilities
+  - [ ] Get file attributes (name, size, MIME type)
+  - [ ] File path to URI conversion
+
+- [ ] Tests
+  - [ ] Test file chooser params parsing
+  - [ ] Test MIME type filtering
+  - [ ] Test multiple selection
+  - [ ] Test camera capture mode
+  - [ ] Mock file picker integration
+
+### Reference Files
+
+- Android: [FileChooserDelegate.kt](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/files/delegates/FileChooserDelegate.kt)
+- Android: [CameraCaptureDelegate.kt](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/files/delegates/CameraCaptureDelegate.kt)
+- Android: [UriHelper.kt](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/files/util/UriHelper.kt)
+
+---
+
+### Offline Caching
+
+- [ ] Implement platform channel for request interception
+  - [ ] Android: Intercept via WebViewClient.shouldInterceptRequest
+  - [ ] iOS: Intercept via WKURLSchemeHandler or custom protocol
+  - [ ] Dart: Offline cache strategy interface
+
+- [ ] Offline request handler
+  - [ ] Request matching logic
+  - [ ] Cache lookup
+  - [ ] Return cached response to WebView
+  - [ ] Delegate pattern for custom offline handlers
+
+- [ ] Pre-cache API
+  - [ ] `preCacheLocation(String location)` on Session
+  - [ ] Fetch and store in offline cache
+  - [ ] Cache key generation
+
+- [ ] Offline HTTP repository
+  - [ ] HTTP client for fetching resources
+  - [ ] Cache storage (shared_preferences or sqflite)
+  - [ ] Cache eviction policy
+  - [ ] Cache size limits
+
+- [ ] Tests
+  - [ ] Test request interception
+  - [ ] Test cache hit/miss logic
+  - [ ] Test pre-cache API
+  - [ ] Test cache eviction
+  - [ ] Test offline request handler delegation
+
+### Reference Files
+
+- Android: [OfflineWebViewRequestInterceptor.kt](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/turbo/offline/OfflineWebViewRequestInterceptor.kt)
+- Android: [OfflineHttpRepository.kt](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/turbo/offline/OfflineHttpRepository.kt) (7000 bytes)
+- Android: [OfflineRequestHandler.kt](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/turbo/offline/OfflineRequestHandler.kt)
+- Android: [OfflinePreCacheRequest.kt](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/turbo/offline/OfflinePreCacheRequest.kt)
+
+---
+
+### WebView Configuration
+
+- [ ] Default user agent integration
+  - [ ] Platform channel to get default WebView user agent
+  - [ ] Compose with Hotwire component list
+  - [ ] Set on WebView creation
+
+- [ ] WebView debugging toggle
+  - [ ] Platform channel to enable/disable WebView debugging
+  - [ ] Android: WebView.setWebContentsDebuggingEnabled
+  - [ ] iOS: WKWebView inspector
+
+- [ ] Reload policy handler
+  - [ ] Implement missing reload decision logic
+  - [ ] Platform channel if native-level control needed
+
+- [ ] Tests
+  - [ ] Test user agent composition
+  - [ ] Test debugging toggle
+  - [ ] Test reload policy
+
+---
+
+## 🟢 MEDIUM PRIORITY: Advanced Platform Features
+
+### Geolocation Permissions
+
+- [ ] Implement platform channel for geolocation permissions
+  - [ ] Android: Hook into WebChromeClient.onGeolocationPermissionsShowPrompt
+  - [ ] iOS: Hook into WKUIDelegate geolocation delegate
+  - [ ] Dart: Permission request delegation
+
+- [ ] Geolocation permission handler
+  - [ ] Request system permissions (permission_handler package)
+  - [ ] Delegate pattern for custom permission UI
+  - [ ] Allow/deny decision propagation to WebView
+  - [ ] Remember decision option
+
+- [ ] Tests
+  - [ ] Test permission request flow
+  - [ ] Test allow/deny actions
+  - [ ] Test retain flag
+
+### Reference Files
+
+- Android: [GeolocationPermissionDelegate.kt](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/files/delegates/GeolocationPermissionDelegate.kt)
+
+---
+
+### HTTP Authentication
+
+- [ ] Implement platform channel for HTTP auth
+  - [ ] Android: Hook into WebViewClient.onReceivedHttpAuthRequest
+  - [ ] iOS: Hook into WKNavigationDelegate didReceiveAuthenticationChallenge
+  - [ ] Dart: Auth challenge delegation
+
+- [ ] HTTP auth handler
+  - [ ] Delegate pattern for credential collection
+  - [ ] Actions: cancel, useCredential, performDefaultHandling
+  - [ ] Credential storage (flutter_secure_storage)
+
+- [ ] Session delegate integration
+  - [ ] Add `sessionDidReceiveAuthChallenge` to SessionDelegate
+  - [ ] Wire up in Session class
+
+- [ ] Tests
+  - [ ] Test auth challenge propagation
+  - [ ] Test credential submission
+  - [ ] Test cancel action
+  - [ ] Test default handling
+
+---
+
+### WebView Process Termination
+
+- [ ] Implement platform channel for process termination
+  - [ ] Android: Hook into WebViewClient.onRenderProcessGone
+  - [ ] iOS: Hook into WKNavigationDelegate webViewWebContentProcessDidTerminate
+  - [ ] Dart: Termination event handling
+
+- [ ] Process termination handler
+  - [ ] Detect termination reason (crashed/killed/unknown)
+  - [ ] Delegate pattern for custom termination handling
+  - [ ] Auto-reload logic (check if WebView is visible)
+  - [ ] Session reset on termination
+
+- [ ] App lifecycle integration
+  - [ ] Track app state (foreground/background)
+  - [ ] Queue terminations in background
+  - [ ] Reload when app returns to foreground
+
+- [ ] Session delegate integration
+  - [ ] Add `sessionWebViewProcessDidTerminate` to SessionDelegate
+
+- [ ] Tests
+  - [ ] Test termination detection
+  - [ ] Test auto-reload logic
+  - [ ] Test background queueing
+  - [ ] Test session reset
+
+---
+
+## ✅ COMPLETE: Core Features (100% Parity)
+
+### Bridge System
+- [x] Message encoding/decoding
+- [x] Component lifecycle (connect/disconnect)
+- [x] Component factory registration
+- [x] WebView bridge injection
+- [x] Reply handling
 - [x] JSON encode/decode hooks
-- [x] WebView bridge injection (Turbo/Bridge JS)
-- [x] Bridge replies over webview
-- [ ] User agent includes registered components + platform default UA (platform channel needed)
-- [x] Bridge message format parity: {id, component, event, data, metadata.url}
-- [x] Bridge lifecycle: connect/disconnect events for components
+- [x] User agent composition for components
+- [x] Tests: [bridge_test.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/test/bridge_test.dart)
 
-### Session core
+### Path Configuration
+- [x] Load from data/asset/remote with caching
+- [x] Regex pattern matching
+- [x] Path properties parsing (presentation, context, uri, title, etc.)
+- [x] Historical location behavior
+- [x] Query string presentation
+- [x] Settings map parsing
+- [x] Repository caching with invalidation
+- [x] Tests: [path_configuration_test.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/test/path_configuration_test.dart)
 
-- [x] Turbo event tracking (visit lifecycle + form submissions)
-- [x] Visit proposal handling from Turbo events
-- [x] Route decision handler (navigate/delegate/external)
-- [x] Query string presentation restore logic
+### Session Core
+- [x] Visit lifecycle tracking
+- [x] Visit proposal handling
 - [x] WebView-backed session (cold boot vs JS visits)
-- [x] Snapshot cache / restore integration (basic hooks)
-- [x] Page invalidation + reload behavior
-- [x] Non-HTTP error redirect handling (delegate hook)
-- [x] Non-HTTP redirect verification (native fetch + cross-origin proposal parity)
-- [ ] Session delegate parity (complete list vs iOS/Android; remaining items are platform channel)
-  - [x] Cross-origin redirect proposal callback
-  - [ ] WebView process termination callback (platform channel needed)
-  - [ ] HTTP auth challenge handling (platform channel needed)
-- [x] Form submission lifecycle: start/finish hooks toggle progress UI
-- [x] Page load failed / errorRaised propagation
-- [x] Restoration identifiers tracked per visitable
-- [x] Session reset + cold boot behavior
-- [x] Turbo readiness handshake (turboIsReady/turboFailedToLoad) + pending visit queue
+- [x] Snapshot cache/restore
+- [x] Form submission lifecycle
+- [x] Error handling and propagation
+- [x] Cross-origin redirect handling
+- [x] Restoration identifiers
+- [x] Turbo readiness handshake
+- [x] Tests: [session_test.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/test/session_test.dart)
 
-### Navigation stack / visitable lifecycle
+### Visit Models
+- [x] VisitAction, VisitOptions, VisitResponse
+- [x] VisitProposal with properties/parameters
+- [x] Visit state modeling
+- [x] Tests: [visit_models_test.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/test/visit_models_test.dart)
 
-- [x] HotwireVisitable widget (route-aware attach/detach + restore/caching hooks)
-- [x] Visitable abstraction activated/deactivated with shared WebView (iOS `Visitable`)
-- [x] WebView keep-alive support for sharing a session WebView
-- [x] Track topmost/active/previous visitable to restore on back navigation
-- [x] Restore visit on back to web view (restore action vs advance)
-- [x] Snapshot cache per visitable and restore integration with navigation stack
-- [x] Main vs modal session handling (shared modal session for modal stack)
-- [x] Refresh/reload requests from visitable surface to Session
-- [ ] Navigation stack routing parity (navigation hierarchy / navigator host rules)
+### Visitable Lifecycle
+- [x] HotwireVisitable widget
+- [x] Activate/deactivate lifecycle
+- [x] WebView keep-alive support
+- [x] Snapshot cache per visitable
+- [x] Tests: [hotwire_visitable_test.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/test/hotwire_visitable_test.dart)
 
-### WebView policy / routing
+### WebView Policies
+- [x] External navigation (non-http schemes)
+- [x] New window policy
+- [x] Link activated policy
+- [x] Policy handler chain
+- [x] Tests: [webview_policy_test.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/test/webview_policy_test.dart)
 
-- [x] External navigation policy (non-http schemes)
-- [x] New window policy (handled via in-app webview create window callbacks)
-- [x] Reload policy
-- [x] Link activated policy (basic)
-- [x] App navigation policy handler chain (basic manager)
-- [x] Modal presentation rules from path config (context + presentation)
-- [x] Propose visits when Turbo does not (target=_blank, cold-boot redirects)
-  - [x] target=_blank / new-window proposals routed to Session
-  - [x] cold-boot redirect proposals
+### Error Handling
+- [x] Web error types (network/timeout/content-type/http/page-load)
+- [x] SSL error type mapping
+- [x] Error view/handler hooks
+- [x] Retry handler
+- [x] Tests: [turbo_error_test.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/test/turbo_error_test.dart), [ssl_error_test.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/test/ssl_error_test.dart)
 
-### Errors
+---
 
-- [x] Web error types (Turbo-style network/timeout/content-type/http/page-load)
-- [x] SSL error type mapping (model only; no WebView hook yet)
-- [x] Standard error view / handler hooks (basic)
-- [x] Error retry handler hook (basic)
+## ⚠️ TEST COVERAGE GAPS
 
-### Offline caching
+### Missing Tests vs Reference Implementations
 
-- [ ] Offline request handler + pre-cache API (platform channel needed)
-- [ ] Offline cache strategy (platform channel needed)
-- [ ] Offline request interception (platform channel needed)
-- [ ] Offline cache persistence policy (eviction, cache key) (platform channel needed)
+The Android and iOS implementations have extensive test coverage that Flutter is missing:
 
-### File chooser / geolocation
+#### Navigator/Routing Tests
+- [ ] Navigation hierarchy controller tests
+  - Reference: iOS has extensive UINavigationController hierarchy tests
+  - Reference: Android has Fragment transaction tests
+  - **Missing in Flutter**: No navigator-level integration tests
 
-- [ ] File chooser delegate (platform channel needed)
-- [ ] Camera capture delegate (platform channel needed)
-- [ ] Geolocation permission delegate (platform channel needed)
-- [ ] MIME type filters and multiple file selection (platform channel needed)
+#### File Handling Tests
+- [ ] File chooser delegate tests
+- [ ] Camera capture delegate tests
+- [ ] URI helper tests
+- [ ] File provider tests
+  - Reference: Android has comprehensive file handling tests
+  - **Missing in Flutter**: No implementation = no tests
 
-## Demo App Parity Checklist
+#### Offline Caching Tests
+- [ ] Request interception tests
+- [ ] Cache repository tests
+- [ ] Cache eviction policy tests
+- [ ] Pre-cache API tests
+  - Reference: Android has OfflineHttpRepository tests
+  - **Missing in Flutter**: No implementation = no tests
 
-- [x] Bottom tabs: Navigation, Bridge Components, Resources
-- [x] Optional Bugs & Fixes tab when using local environment
-- [x] Native Numbers screen (1–100)
-- [x] Modal web for `/new`, `/edit`, `/modal`, `/numbers/:id`
-- [x] Native image viewer for image paths
-- [x] Demo bridge components (menu, form, overflow menu) wired to web
-- [x] Demo toolbar progress indicator for form submission
+#### Platform Callback Tests
+- [ ] WebView process termination tests
+- [ ] HTTP auth challenge tests
+- [ ] Geolocation permission tests
+  - Reference: Both Android and iOS have these
+  - **Missing in Flutter**: Only models exist in [platform_hooks.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/lib/src/webview/platform_hooks.dart)
 
-## Current State (Flutter)
+#### Integration Tests
+- [ ] End-to-end navigation flow tests
+- [ ] Modal presentation flow tests
+- [ ] Session coordination tests
+- [ ] Full app lifecycle tests
+  - Reference: Both platforms have demo app integration tests
+  - **Missing in Flutter**: Demo exists but no integration tests
 
-- Core config + path configuration + rule matching implemented and tested.
-- Bridge primitives (message, component, factory, dispatcher) implemented and tested.
-- Bridge component lifecycle + reply helpers implemented and tested.
-- Turbo visit models implemented and tested.
-- Minimal session logic implemented and tested.
-- Visit state modeling implemented and tested.
-- Platform hook placeholders added for auth/process/file/geolocation/offline events.
-- Minimal WebView widget using `flutter_inappwebview` added to enable in-app navigation.
-- Turbo/Bridge JS injected into WebView and wired to Session/Bridge message flow.
-- Session now supports `visitWithOptions`, `restoreOrVisit`, snapshot cache hooks via a WebView adapter (no full lifecycle yet).
-- Demo app updated to match native demo layout and routing.
-- Navigation stack helper added for main/modal decisioning (not yet wired into app navigation).
-- Demo app uses NavigationStack instructions for modal vs main routing decisions.
-- Navigation host registry added for tab-based stacks (demo now uses per-tab hosts).
+---
 
-## Reference Test Coverage vs Flutter
+## Implementation Phases
 
-### Reference tests (Android/iOS) cover
+| Phase | Feature | Priority |
+|-------|---------|----------|
+| 1 | **Navigator Implementation** | 🔴 Critical |
+| 2 | File Upload Support | 🟡 High |
+| 2 | Offline Caching | 🟡 High |
+| 2 | WebView Configuration | 🟡 High |
+| 3 | Geolocation Permissions | 🟢 Medium |
+| 3 | HTTP Authentication | 🟢 Medium |
+| 3 | Process Termination | 🟢 Medium |
 
-- Bridge: message encoding/decoding, internal message mapping, component lifecycle, delegate routing, async APIs, JavaScript evaluation hooks, user agent composition.
-- Turbo session: cold boot visit lifecycle, delegate callbacks, Turbo error mapping (HTTP/page load), JS bridge wiring.
-- Path configuration: loader, parsing, modal styles, historical locations, repository caching behavior.
-- Routing/policy: route decision handlers (app/system/safari/browser), webview policy handlers (external, new window, reload, link activated).
-- Navigation stack: navigation hierarchy controller / navigator host + routing rules.
-- Errors: HTTP/web/SSL error models.
-- File handling: file chooser, camera capture, URI helper, file provider.
-- Visit response parsing/flags.
+---
 
-### Flutter tests currently cover
+## Implementation Strategy
 
-- Bridge message encoding/decoding, component lifecycle, dispatcher and factories.
-- User agent string composition for Hotwire components.
-- Turbo JS/bridge JS injection shims.
-- WebView policy handlers (external, new window, link activated) and policy manager basics.
-- Session lifecycle (visit proposals, redirects, errors, Turbo readiness, snapshot cache, restoration identifiers).
-- Path configuration parsing, rules, loader errors, tabs/modal parsing, historical locations.
-- Visit models (actions, options, response).
-- SSL error mapping model.
-- Visitable lifecycle + controller helpers.
+### Phase 1: Unblock App Development (Critical)
 
-### Test gaps to close (parity)
+Implement Navigator to enable actual app navigation. Without this, Flutter apps cannot use Hotwired Native.
 
-- [x] Route decision handlers parity (app/system/browser/safari-style routing decisions).
-- [ ] Navigation stack behavior parity (navigation hierarchy / navigator host rules).
-- [x] WebView policy reload handler parity.
-- [x] Turbo error mapping parity (HTTP error vs page load vs web error types).
-- [x] Visit response error handling parity (non-2xx, redirect behaviors).
-- [x] Path configuration repository caching behavior (remote caching + invalidation).
-- [x] Bridge async API parity (timing/queueing behavior).
-- [ ] File chooser / camera / URI helper behaviors (platform channel when available).
-- [ ] Geolocation permission handling (platform channel when available).
+### Phase 2: Common Web Features (High Priority)
 
-## Next Steps (No platform-specific code yet)
+Implement file uploads, offline caching, and WebView configuration. These are frequently used web app features.
 
-1) Navigation stack routing parity
-   - Match navigator host rules (modal vs main stack behavior).
-   - Align refresh/replace/clear_all behavior with native demos.
+### Phase 3: Advanced Features (Medium Priority)
 
-2) Platform channel backlog items (see below)
-   - User agent default, debugging toggle, process termination, HTTP auth, file/geolocation/offline hooks.
+Implement geolocation, HTTP auth, and process termination handling for production robustness.
 
-## Platform Channel Backlog
+---
 
-- WebView default user agent integration
-- WebView debugging toggle
-- Reload policy
-- WebView process termination callback
-- HTTP auth challenge handling
-- Offline cache + request interception
-- File chooser delegate
-- Camera capture delegate
-- Geolocation permission delegate
+## Reference Implementation Mapping
 
-## Reference Mapping (Key Files)
+| Android | iOS | Flutter |
+|---------|-----|---------|
+| [core/bridge](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/bridge) | [Source/Bridge](file:///Users/afstanton/code/hotwired/hotwire-native-ios/Source/Bridge) | [lib/src/bridge](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/lib/src/bridge) ✅ |
+| [core/turbo/session](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/turbo/session) | [Source/Turbo/Session](file:///Users/afstanton/code/hotwired/hotwire-native-ios/Source/Turbo/Session) | [lib/src/session](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/lib/src/session) ✅ |
+| [core/turbo/config](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/turbo/config) | [Source/Turbo/Path Configuration](file:///Users/afstanton/code/hotwired/hotwire-native-ios/Source/Turbo/Path%20Configuration) | [lib/src/turbo](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/lib/src/turbo) ✅ |
+| Fragment Navigation | [Source/Turbo/Navigator](file:///Users/afstanton/code/hotwired/hotwire-native-ios/Source/Turbo/Navigator) | [lib/src/navigation](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/lib/src/navigation) ⚠️ |
+| [core/files](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/files) | File delegates in Navigator | [platform_hooks.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/lib/src/webview/platform_hooks.dart) ❌ |
+| [core/turbo/offline](file:///Users/afstanton/code/hotwired/hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/turbo/offline) | Networking layer | [platform_hooks.dart](file:///Users/afstanton/code/hotwired/hotwire-native-flutter/lib/src/webview/platform_hooks.dart) ❌ |
 
-- Android core: `hotwire-native-android/core/src/main/kotlin/dev/hotwire/core`
-- iOS core: `hotwire-native-ios/Source`
-- Android session: `hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/turbo/session/Session.kt`
-- iOS session: `hotwire-native-ios/Source/Turbo/Session/Session.swift`
-- Android path config: `hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/turbo/config`
-- iOS path config: `hotwire-native-ios/Source/Turbo/Path Configuration`
-- Bridge (Android): `hotwire-native-android/core/src/main/kotlin/dev/hotwire/core/bridge`
-- Bridge (iOS): `hotwire-native-ios/Source/Bridge`
-
-## Notes
-
-- This list is parity‑driven: only features present in Android/iOS reference libraries are targeted.
-- Demo app intentionally mirrors native demos; avoid extra features.
+**Legend**: ✅ Complete | ⚠️ Partial | ❌ Missing
