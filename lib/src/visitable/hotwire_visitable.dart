@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../bridge/bridge.dart';
+import '../bridge/bridge_delegate.dart';
 import '../session/session.dart';
 import '../webview/hotwire_webview.dart';
 
@@ -9,6 +10,7 @@ class HotwireVisitable extends StatefulWidget {
   final String url;
   final Session session;
   final Bridge? bridge;
+  final BridgeDelegate? bridgeDelegate;
   final HotwireRouteRequestCallback? onRouteRequest;
   final HotwireExternalNavigationCallback? onExternalNavigation;
   final HotwireWebViewCreatedCallback? onWebViewCreated;
@@ -24,6 +26,7 @@ class HotwireVisitable extends StatefulWidget {
     required this.url,
     required this.session,
     this.bridge,
+    this.bridgeDelegate,
     this.onRouteRequest,
     this.onExternalNavigation,
     this.onWebViewCreated,
@@ -44,12 +47,16 @@ class HotwireVisitable extends StatefulWidget {
 class _HotwireVisitableState extends State<HotwireVisitable>
     implements RouteAware, SessionVisitable {
   late final String _visitableId;
+  late final Bridge _bridge;
   bool _attached = false;
 
   @override
   void initState() {
     super.initState();
     _visitableId = widget.visitableIdentifier ?? UniqueKey().toString();
+    _bridge = widget.bridge ?? Bridge();
+    widget.bridgeDelegate?.onWebViewAttached(_bridge);
+    widget.bridgeDelegate?.onViewDidLoad();
   }
 
   @override
@@ -70,6 +77,7 @@ class _HotwireVisitableState extends State<HotwireVisitable>
   void dispose() {
     widget.routeObserver?.unsubscribe(this);
     _detach();
+    widget.bridgeDelegate?.onWebViewDetached();
     super.dispose();
   }
 
@@ -102,6 +110,8 @@ class _HotwireVisitableState extends State<HotwireVisitable>
       return;
     }
     _attached = true;
+    widget.bridgeDelegate?.onViewWillAppear();
+    widget.bridgeDelegate?.onViewDidAppear();
     widget.session.attachVisitable(this);
     widget.controller?._attach(widget.session);
     widget.session.visitableDidAppear(this);
@@ -111,6 +121,8 @@ class _HotwireVisitableState extends State<HotwireVisitable>
     if (!_attached) {
       return;
     }
+    widget.bridgeDelegate?.onViewWillDisappear();
+    widget.bridgeDelegate?.onViewDidDisappear();
     widget.session.cacheSnapshot();
     _attached = false;
     widget.session.detachVisitable(this);
@@ -123,7 +135,7 @@ class _HotwireVisitableState extends State<HotwireVisitable>
     return HotwireWebView(
       url: widget.url,
       session: widget.session,
-      bridge: widget.bridge,
+      bridge: _bridge,
       onRouteRequest: widget.onRouteRequest,
       onExternalNavigation: widget.onExternalNavigation,
       onWebViewCreated: widget.onWebViewCreated,

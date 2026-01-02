@@ -224,9 +224,6 @@ class _WebTabState extends State<WebTab> {
       locationResolver: () =>
           _sessionPair.mainSession.lastVisitedLocation ?? widget.url,
     );
-    _bridgeDelegate.onViewDidLoad();
-    _bridgeDelegate.onViewWillAppear();
-    _bridgeDelegate.onViewDidAppear();
 
     _navigator = HotwireNavigator(
       navigatorKey: _navigatorKey,
@@ -254,6 +251,7 @@ class _WebTabState extends State<WebTab> {
           url: proposal.url.toString(),
           session: session,
           bridge: isModal ? null : _bridge,
+          bridgeDelegate: isModal ? null : _bridgeDelegate,
           isModal: isModal,
           actions: _actions,
           routeObserver: _routeObserver,
@@ -274,9 +272,6 @@ class _WebTabState extends State<WebTab> {
 
   @override
   void dispose() {
-    _bridgeDelegate.onViewWillDisappear();
-    _bridgeDelegate.onViewDidDisappear();
-    _bridgeDelegate.onWebViewDetached();
     _actions.dispose();
     super.dispose();
   }
@@ -297,6 +292,7 @@ class _WebTabState extends State<WebTab> {
           url: widget.url,
           session: _sessionPair.mainSession,
           bridge: _bridge,
+          bridgeDelegate: _bridgeDelegate,
           actions: _actions,
           routeObserver: _routeObserver,
           webViewOverride: widget.webViewOverride,
@@ -441,6 +437,7 @@ class DemoWebScaffold extends StatelessWidget {
   final String url;
   final Session session;
   final Bridge? bridge;
+  final BridgeDelegate? bridgeDelegate;
   final bool isModal;
   final DemoActionController actions;
   final HotwireRouteRequestCallback onRouteRequest;
@@ -457,6 +454,7 @@ class DemoWebScaffold extends StatelessWidget {
     required this.actions,
     required this.onRouteRequest,
     this.bridge,
+    this.bridgeDelegate,
     this.isModal = false,
     this.routeObserver,
     this.webViewOverride,
@@ -468,6 +466,19 @@ class DemoWebScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final body = HotwireVisitable(
+      url: url,
+      session: session,
+      bridge: bridge,
+      bridgeDelegate: bridgeDelegate,
+      onRouteRequest: onRouteRequest,
+      routeObserver: routeObserver,
+      webViewOverride: webViewOverride,
+      adapterOverride: adapterOverride,
+      controllerOverride: controllerOverride,
+      keepAlive: keepAlive,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -518,17 +529,7 @@ class DemoWebScaffold extends StatelessWidget {
                 ),
               ],
       ),
-      body: HotwireVisitable(
-        url: url,
-        session: session,
-        bridge: bridge,
-        onRouteRequest: onRouteRequest,
-        routeObserver: routeObserver,
-        webViewOverride: webViewOverride,
-        adapterOverride: adapterOverride,
-        controllerOverride: controllerOverride,
-        keepAlive: keepAlive,
-      ),
+      body: body,
     );
   }
 }
