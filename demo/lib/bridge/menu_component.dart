@@ -1,11 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 
+import 'demo_bridge_destination.dart';
+
 class DemoMenuComponent extends BridgeComponent {
-  final State state;
-
-  DemoMenuComponent({required this.state});
-
   @override
   String get name => 'menu';
 
@@ -26,7 +23,7 @@ class DemoMenuComponent extends BridgeComponent {
     _showMenu(title, items);
   }
 
-  List<_MenuItem> _parseItems(dynamic rawItems) {
+  List<DemoMenuItem> _parseItems(dynamic rawItems) {
     if (rawItems is! List) {
       return const [];
     }
@@ -43,43 +40,38 @@ class DemoMenuComponent extends BridgeComponent {
           if (parsedIndex == null) {
             return null;
           }
-          return _MenuItem(title: title, index: parsedIndex);
+          return DemoMenuItem(title: title, index: parsedIndex);
         })
-        .whereType<_MenuItem>()
+        .whereType<DemoMenuItem>()
         .toList();
   }
 
-  void _showMenu(String title, List<_MenuItem> items) {
-    if (!state.mounted) {
+  void _showMenu(String title, List<DemoMenuItem> items) {
+    final destination = this.destination;
+    if (destination is! DemoBridgeDestination) {
       return;
     }
-    showModalBottomSheet<void>(
-      context: state.context,
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(title: Text(title)),
-              for (final item in items)
-                ListTile(
-                  title: Text(item.title),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    replyToData('display', {'selectedIndex': item.index});
-                  },
-                ),
-            ],
-          ),
-        );
+    destination.showMenu(
+      title: title,
+      items: items,
+      onSelected: (index) {
+        replyToData('display', {'selectedIndex': index});
       },
     );
   }
 }
 
-class _MenuItem {
+class DemoMenuItem {
   final String title;
   final int index;
 
-  const _MenuItem({required this.title, required this.index});
+  const DemoMenuItem({required this.title, required this.index});
+}
+
+class DemoMenuComponentFactory extends BridgeComponentFactory<DemoMenuComponent> {
+  @override
+  String get name => 'menu';
+
+  @override
+  DemoMenuComponent create() => DemoMenuComponent();
 }

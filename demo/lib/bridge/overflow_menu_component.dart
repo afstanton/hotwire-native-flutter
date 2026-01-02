@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 
+import 'demo_bridge_destination.dart';
+
 class OverflowActionState {
   final String label;
   final VoidCallback onPressed;
@@ -9,10 +11,6 @@ class OverflowActionState {
 }
 
 class DemoOverflowMenuComponent extends BridgeComponent {
-  final void Function(OverflowActionState state) onChanged;
-
-  DemoOverflowMenuComponent({required this.onChanged});
-
   @override
   String get name => 'overflow-menu';
 
@@ -26,8 +24,21 @@ class DemoOverflowMenuComponent extends BridgeComponent {
     if (label == null || label.isEmpty) {
       return;
     }
-    onChanged(
+    final destination = this.destination;
+    if (destination is! DemoBridgeDestination) {
+      return;
+    }
+    destination.setOverflowAction(
       OverflowActionState(label: label, onPressed: () => replyTo('connect')),
     );
   }
+}
+
+class DemoOverflowMenuComponentFactory
+    extends BridgeComponentFactory<DemoOverflowMenuComponent> {
+  @override
+  String get name => 'overflow-menu';
+
+  @override
+  DemoOverflowMenuComponent create() => DemoOverflowMenuComponent();
 }

@@ -95,6 +95,7 @@ class Session {
                  ));
 
   bool get isInitialized => _initialized;
+  String? get lastVisitedLocation => _lastVisitedLocation;
 
   void markInitialized() {
     _initialized = true;

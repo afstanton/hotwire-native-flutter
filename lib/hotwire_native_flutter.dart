@@ -2,8 +2,10 @@ library;
 
 export 'src/hotwire.dart';
 export 'src/bridge/bridge.dart';
+export 'src/bridge/bridge_delegate.dart';
 export 'src/bridge/bridge_component.dart';
 export 'src/bridge/bridge_component_factory.dart';
+export 'src/bridge/bridge_reply_handler.dart';
 export 'src/bridge/message.dart';
 export 'src/navigation/navigation_controller.dart';
 export 'src/navigation/navigation_host.dart';

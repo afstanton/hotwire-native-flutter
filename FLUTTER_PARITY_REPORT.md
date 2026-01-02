@@ -42,9 +42,10 @@ This document reflects current Flutter implementation status versus the Android/
 
 - [x] Message encoding/decoding + metadata
 - [x] Component lifecycle + factories
+- [x] BridgeDelegate/BridgeDestination lifecycle + message gating
 - [x] Reply helpers (sync + async)
 - [x] JS bridge injection
-- [x] Tests: `test/bridge_test.dart`
+- [x] Tests: `test/bridge_test.dart`, `test/bridge_delegate_test.dart`
 
 ### Path Configuration
 

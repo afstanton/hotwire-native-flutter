@@ -1,8 +1,17 @@
-import 'bridge_delegate.dart';
+import 'bridge_reply_handler.dart';
 import 'message.dart';
 
+abstract class BridgeDestination {
+  void onBridgeComponentInitialized(BridgeComponent component) {}
+
+  bool bridgeWebViewIsReady() {
+    return true;
+  }
+}
+
 abstract class BridgeComponent {
-  BridgeDelegate? delegate;
+  BridgeReplyHandler? delegate;
+  BridgeDestination? destination;
   final Map<String, BridgeMessage> _receivedMessages = {};
 
   String get name;
@@ -12,6 +21,16 @@ abstract class BridgeComponent {
   void onStart() {}
 
   void onStop() {}
+
+  void onViewDidLoad() {}
+
+  void onViewWillAppear() {}
+
+  void onViewDidAppear() {}
+
+  void onViewWillDisappear() {}
+
+  void onViewDidDisappear() {}
 
   void didReceive(BridgeMessage message) {
     _receivedMessages[message.event] = message;
@@ -24,6 +43,26 @@ abstract class BridgeComponent {
 
   void didStop() {
     onStop();
+  }
+
+  void didViewDidLoad() {
+    onViewDidLoad();
+  }
+
+  void didViewWillAppear() {
+    onViewWillAppear();
+  }
+
+  void didViewDidAppear() {
+    onViewDidAppear();
+  }
+
+  void didViewWillDisappear() {
+    onViewWillDisappear();
+  }
+
+  void didViewDidDisappear() {
+    onViewDidDisappear();
   }
 
   BridgeMessage? receivedMessageFor(String event) {

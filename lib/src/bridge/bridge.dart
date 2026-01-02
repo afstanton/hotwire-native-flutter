@@ -1,12 +1,12 @@
 import '../hotwire.dart';
 import 'bridge_component.dart';
 import 'bridge_component_factory.dart';
-import 'bridge_delegate.dart';
+import 'bridge_reply_handler.dart';
 import 'message.dart';
 
 typedef BridgeMessageHandler = bool Function(BridgeMessage message);
 
-class Bridge implements BridgeDelegate {
+class Bridge implements BridgeReplyHandler {
   final Map<String, BridgeComponent> _components = {};
   final Map<String, BridgeComponentFactory> _factories = {};
   bool _isActive = false;
@@ -101,7 +101,6 @@ class Bridge implements BridgeDelegate {
     );
   }
 
-  @override
   @override
   bool replyWith(BridgeMessage message) {
     if (replyHandler == null) {

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 
+import 'demo_bridge_destination.dart';
+
 class FormActionState {
   final String title;
   final bool enabled;
@@ -22,10 +24,6 @@ class FormActionState {
 }
 
 class DemoFormComponent extends BridgeComponent {
-  final void Function(FormActionState state) onChanged;
-
-  DemoFormComponent({required this.onChanged});
-
   @override
   String get name => 'form';
 
@@ -69,11 +67,15 @@ class DemoFormComponent extends BridgeComponent {
   }
 
   void _notify() {
+    final destination = this.destination;
+    if (destination is! DemoBridgeDestination) {
+      return;
+    }
     final title = _submitTitle;
     if (title == null) {
       return;
     }
-    onChanged(
+    destination.setFormAction(
       FormActionState(
         title: title,
         enabled: _enabled,
@@ -81,4 +83,12 @@ class DemoFormComponent extends BridgeComponent {
       ),
     );
   }
+}
+
+class DemoFormComponentFactory extends BridgeComponentFactory<DemoFormComponent> {
+  @override
+  String get name => 'form';
+
+  @override
+  DemoFormComponent create() => DemoFormComponent();
 }

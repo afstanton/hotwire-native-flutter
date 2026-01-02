@@ -5,6 +5,8 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart'
     hide NavigationAction;
 import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 
+import 'bridge/demo_actions.dart';
+import 'bridge/demo_bridge_destination.dart';
 import 'bridge/form_component.dart';
 import 'bridge/menu_component.dart';
 import 'bridge/overflow_menu_component.dart';
@@ -187,6 +189,8 @@ class _WebTabState extends State<WebTab> {
   late final RouteObserver<PageRoute<dynamic>> _routeObserver;
   late final Bridge _bridge;
   late final DemoActionController _actions;
+  late final DemoBridgeDestination _bridgeDestination;
+  late final BridgeDelegate _bridgeDelegate;
 
   @override
   void initState() {
@@ -203,22 +207,26 @@ class _WebTabState extends State<WebTab> {
       modalKeepAlive: InAppWebViewKeepAlive(),
     );
     _actions = DemoActionController();
+    _bridgeDestination = DemoBridgeDestination(
+      navigatorKey: _navigatorKey,
+      actions: _actions,
+    );
     _bridge = widget.bridge ?? Bridge();
-    _bridge.register(
-      DemoFormComponent(
-        onChanged: (state) {
-          _actions.formAction.value = state;
-        },
-      ),
+    _bridgeDelegate = BridgeDelegate(
+      location: widget.url,
+      destination: _bridgeDestination,
+      componentFactories: [
+        DemoFormComponentFactory(),
+        DemoOverflowMenuComponentFactory(),
+        DemoMenuComponentFactory(),
+      ],
+      bridge: _bridge,
+      locationResolver: () =>
+          _sessionPair.mainSession.lastVisitedLocation ?? widget.url,
     );
-    _bridge.register(
-      DemoOverflowMenuComponent(
-        onChanged: (state) {
-          _actions.overflowAction.value = state;
-        },
-      ),
-    );
-    _bridge.register(DemoMenuComponent(state: this));
+    _bridgeDelegate.onViewDidLoad();
+    _bridgeDelegate.onViewWillAppear();
+    _bridgeDelegate.onViewDidAppear();
 
     _navigator = HotwireNavigator(
       navigatorKey: _navigatorKey,
@@ -265,6 +273,15 @@ class _WebTabState extends State<WebTab> {
   }
 
   @override
+  void dispose() {
+    _bridgeDelegate.onViewWillDisappear();
+    _bridgeDelegate.onViewDidDisappear();
+    _bridgeDelegate.onWebViewDetached();
+    _actions.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Navigator(
       key: _navigatorKey,
@@ -301,20 +318,6 @@ class _WebTabState extends State<WebTab> {
         return [route];
       },
     );
-  }
-}
-
-class DemoActionController {
-  final ValueNotifier<FormActionState?> formAction =
-      ValueNotifier<FormActionState?>(null);
-  final ValueNotifier<OverflowActionState?> overflowAction =
-      ValueNotifier<OverflowActionState?>(null);
-  final ValueNotifier<bool> showFormProgress = ValueNotifier<bool>(false);
-
-  void dispose() {
-    formAction.dispose();
-    overflowAction.dispose();
-    showFormProgress.dispose();
   }
 }
 

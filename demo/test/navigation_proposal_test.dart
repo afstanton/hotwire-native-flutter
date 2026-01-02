@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
+import 'package:hotwire_native/bridge/demo_actions.dart';
 import 'package:hotwire_native/main.dart';
 
 void main() {
