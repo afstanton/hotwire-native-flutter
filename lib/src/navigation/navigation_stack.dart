@@ -210,6 +210,7 @@ class NavigationStack {
           targetStack: NavigationStackType.modal,
           action: NavigationAction.pop,
           didDismissModal: hadModal,
+          refreshLocation: _mainStack.isNotEmpty ? _mainStack.last : null,
         );
       }
       _modalStack.removeLast();
@@ -218,6 +219,7 @@ class NavigationStack {
         targetStack: NavigationStackType.modal,
         action: NavigationAction.pop,
         didDismissModal: false,
+        refreshLocation: _modalStack.isNotEmpty ? _modalStack.last : null,
       );
     }
 
@@ -230,6 +232,7 @@ class NavigationStack {
       targetStack: NavigationStackType.main,
       action: NavigationAction.pop,
       didDismissModal: false,
+      refreshLocation: _mainStack.isNotEmpty ? _mainStack.last : null,
     );
   }
 
@@ -299,9 +302,33 @@ class NavigationStack {
     final stack = targetContext == NavigationStackType.modal
         ? _modalStack
         : _mainStack;
-    if (stack.isNotEmpty && stack.last == location) {
+    if (stack.isNotEmpty &&
+        _isSameLocation(
+          currentLocation: stack.last,
+          nextLocation: location,
+          properties: properties,
+        )) {
       return Presentation.replace;
     }
     return Presentation.defaultValue;
+  }
+
+  bool _isSameLocation({
+    required String currentLocation,
+    required String nextLocation,
+    required Map<String, dynamic> properties,
+  }) {
+    if (properties.queryStringPresentation == QueryStringPresentation.replace) {
+      return _stripQuery(currentLocation) == _stripQuery(nextLocation);
+    }
+    return currentLocation == nextLocation;
+  }
+
+  String _stripQuery(String location) {
+    final uri = Uri.tryParse(location);
+    if (uri == null) {
+      return location;
+    }
+    return uri.replace(query: '').toString();
   }
 }

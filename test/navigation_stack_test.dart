@@ -123,6 +123,23 @@ void main() {
     expect(stack.state.modalStack, ['https://example.com/modal/new']);
   });
 
+  test('NavigationStack pop refreshes main when dismissing modal', () {
+    final stack = NavigationStack(startLocation: 'https://example.com/home');
+    stack.route(
+      location: 'https://example.com/modal/new',
+      properties: const {'context': 'modal'},
+    );
+
+    final instruction = stack.route(
+      location: 'https://example.com/pop',
+      properties: const {'presentation': 'pop'},
+    );
+
+    expect(instruction.action, NavigationAction.pop);
+    expect(instruction.refreshLocation, 'https://example.com/home');
+    expect(stack.state.modalStack, isEmpty);
+  });
+
   test('NavigationStack clearAll resets to new root', () {
     final stack = NavigationStack(startLocation: 'https://example.com/home');
     stack.route(location: 'https://example.com/features', properties: const {});
@@ -161,6 +178,23 @@ void main() {
 
     expect(instruction.action, NavigationAction.replace);
     expect(stack.state.mainStack, ['https://example.com/home']);
+  });
+
+  test('NavigationStack replaces when query string presentation is replace', () {
+    final stack = NavigationStack(startLocation: 'https://example.com/items');
+    stack.route(
+      location: 'https://example.com/items?filter=one',
+      properties: const {'query_string_presentation': 'replace'},
+    );
+
+    final instruction = stack.route(
+      location: 'https://example.com/items?filter=two',
+      properties: const {'query_string_presentation': 'replace'},
+    );
+
+    expect(instruction.action, NavigationAction.replace);
+    expect(stack.state.mainStack.length, 1);
+    expect(stack.state.mainStack.last, 'https://example.com/items?filter=two');
   });
 
   test('NavigationStack clears modal stack for historical locations', () {

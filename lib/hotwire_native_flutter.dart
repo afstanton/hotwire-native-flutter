@@ -5,6 +5,7 @@ export 'src/bridge/bridge.dart';
 export 'src/bridge/bridge_component.dart';
 export 'src/bridge/bridge_component_factory.dart';
 export 'src/bridge/message.dart';
+export 'src/navigation/navigation_host.dart';
 export 'src/navigation/navigation_stack.dart';
 export 'src/session/route_decision.dart';
 export 'src/session/session.dart';

@@ -89,6 +89,8 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  late final NavigationHostRegistry _navigationHosts;
+  final Map<String, Session> _tabSessions = {};
 
   List<DemoTab> get _tabs {
     final baseUrl = DemoConfig.baseUrl;
@@ -116,6 +118,12 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
     return tabs;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _navigationHosts = NavigationHostRegistry();
   }
 
   void _openNumbersScreen(
@@ -172,6 +180,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final tabs = _tabs;
+    _ensureTabSessions(tabs);
 
     return Scaffold(
       body: IndexedStack(
@@ -180,6 +189,7 @@ class _MainScreenState extends State<MainScreen> {
           for (final tab in tabs)
             WebTab(
               url: tab.url,
+              session: _tabSessions[_hostIdForTab(tab)],
               onOpenNumbers: _openNumbersScreen,
               onOpenModalWeb: _openModalWeb,
               onOpenImage: _openImageViewer,
@@ -192,13 +202,39 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+            _navigationHosts.setActive(_hostIdForTab(tabs[index]));
+          });
+        },
         items: [
           for (final tab in tabs)
             BottomNavigationBarItem(icon: Icon(tab.icon), label: tab.title),
         ],
       ),
     );
+  }
+
+  void _ensureTabSessions(List<DemoTab> tabs) {
+    for (final tab in tabs) {
+      final hostId = _hostIdForTab(tab);
+      final host = _navigationHosts.ensureHost(
+        id: hostId,
+        startLocation: tab.url,
+      );
+      _tabSessions.putIfAbsent(
+        hostId,
+        () => Session(navigationStack: host.stack),
+      );
+    }
+    if (_navigationHosts.activeHostId == null && tabs.isNotEmpty) {
+      _navigationHosts.setActive(_hostIdForTab(tabs.first));
+    }
+  }
+
+  String _hostIdForTab(DemoTab tab) {
+    return tab.title.toLowerCase().replaceAll(' ', '-');
   }
 }
 
@@ -348,7 +384,15 @@ class _WebTabState extends State<WebTab> {
       return;
     }
 
-    _session.visitWithOptions(uri.toString(), options: proposal.options);
+    var options = proposal.options;
+    if (instruction?.action == NavigationAction.replaceRoot) {
+      options = VisitOptions(
+        action: VisitAction.replace,
+        snapshotHTML: options.snapshotHTML,
+        response: options.response,
+      );
+    }
+    _session.visitWithOptions(uri.toString(), options: options);
   }
 
   NavigationInstruction? _handleNavigationInstruction(
@@ -374,10 +418,19 @@ class _WebTabState extends State<WebTab> {
       _session.restoreOrVisit(instruction.refreshLocation!);
     }
 
+    if ((instruction.action == NavigationAction.clearAll ||
+            instruction.action == NavigationAction.replaceRoot) &&
+        mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+
     if (instruction.action == NavigationAction.pop && mounted) {
       final navigator = Navigator.of(context);
       if (navigator.canPop()) {
         navigator.pop();
+      }
+      if (instruction.refreshLocation != null) {
+        _session.restoreOrVisit(instruction.refreshLocation!);
       }
     }
 

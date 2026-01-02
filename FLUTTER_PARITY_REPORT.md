@@ -94,13 +94,13 @@ This document tracks feature parity between the Flutter library and the Android/
 - [x] Snapshot cache per visitable and restore integration with navigation stack
 - [x] Main vs modal session handling (shared modal session for modal stack)
 - [x] Refresh/reload requests from visitable surface to Session
-- [ ] Navigation stack routing parity (main vs modal session handling)
+- [ ] Navigation stack routing parity (navigation hierarchy / navigator host rules)
 
 ### WebView policy / routing
 
 - [x] External navigation policy (non-http schemes)
 - [x] New window policy (handled via in-app webview create window callbacks)
-- [ ] Reload policy (platform channel needed)
+- [x] Reload policy
 - [x] Link activated policy (basic)
 - [x] App navigation policy handler chain (basic manager)
 - [x] Modal presentation rules from path config (context + presentation)
@@ -154,6 +154,7 @@ This document tracks feature parity between the Flutter library and the Android/
 - Demo app updated to match native demo layout and routing.
 - Navigation stack helper added for main/modal decisioning (not yet wired into app navigation).
 - Demo app uses NavigationStack instructions for modal vs main routing decisions.
+- Navigation host registry added for tab-based stacks (demo now uses per-tab hosts).
 
 ## Reference Test Coverage vs Flutter
 
@@ -182,43 +183,24 @@ This document tracks feature parity between the Flutter library and the Android/
 
 ### Test gaps to close (parity)
 
-- [ ] Route decision handlers parity (app/system/browser/safari-style routing decisions).
 - [x] Route decision handlers parity (app/system/browser/safari-style routing decisions).
 - [ ] Navigation stack behavior parity (navigation hierarchy / navigator host rules).
-- [ ] WebView policy reload handler parity.
 - [x] WebView policy reload handler parity.
 - [x] Turbo error mapping parity (HTTP error vs page load vs web error types).
 - [x] Visit response error handling parity (non-2xx, redirect behaviors).
 - [x] Path configuration repository caching behavior (remote caching + invalidation).
-- [ ] Bridge async API parity (timing/queueing behavior).
 - [x] Bridge async API parity (timing/queueing behavior).
 - [ ] File chooser / camera / URI helper behaviors (platform channel when available).
 - [ ] Geolocation permission handling (platform channel when available).
 
 ## Next Steps (No platform-specific code yet)
 
-1) Turbo readiness handshake + pending visit queue
-   - Track Turbo ready/failed state from JS.
-   - Queue visits during cold boot and replay once ready.
+1) Navigation stack routing parity
+   - Match navigator host rules (modal vs main stack behavior).
+   - Align refresh/replace/clear_all behavior with native demos.
 
-2) Visitable lifecycle foundation
-   - Introduce Visitable abstraction + activation/deactivation hooks tied to navigation.
-   - Attach/detach visitables to Session.
-
-3) Restore & snapshot integration
-   - Restore on back navigation (restore vs advance).
-   - Cache snapshots per visitable; restore identifiers on reattach.
-
-4) Navigation stack parity
-   - Track topmost/active/previous visitables.
-   - Main vs modal stack handling (dismiss modal on proposal when needed).
-
-5) Turbo visit proposal fallback
-   - Propose visits when Turbo doesn’t (target=_blank, cold-boot redirects).
-
-6) Non-HTTP redirect verification
-   - Native fetch to confirm cross-origin redirect before proposing.
-   - (May need platform channel or HTTP client policy.)
+2) Platform channel backlog items (see below)
+   - User agent default, debugging toggle, process termination, HTTP auth, file/geolocation/offline hooks.
 
 ## Platform Channel Backlog
 
