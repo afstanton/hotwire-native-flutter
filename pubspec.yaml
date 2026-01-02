@@ -11,11 +11,19 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_inappwebview: ^6.0.0
+  file_selector: ^1.0.0
+  image_picker: ^1.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+
+dependency_overrides:
+  flutter_inappwebview_android:
+    path: vendor/flutter_inappwebview_android
+  flutter_inappwebview_ios:
+    path: vendor/flutter_inappwebview_ios
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

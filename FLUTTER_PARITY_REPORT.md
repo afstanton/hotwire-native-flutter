@@ -5,7 +5,7 @@ This document reflects current Flutter implementation status versus the Android/
 ## Overall Status
 
 - Core library parity is largely complete.
-- Remaining work is concentrated in: platform channel items (file chooser / camera capture / MIME filters) and integration tests.
+- Remaining work is concentrated in: platform integration tests for platform-channel features.
 
 ## Navigation (Execution Layer)
 
@@ -32,9 +32,10 @@ This document reflects current Flutter implementation status versus the Android/
 - [x] WebView debugging toggle
 - [x] WebView process termination callback
 - [x] HTTP auth challenge handling
-- [ ] File chooser / camera capture / MIME filters
+- [x] File chooser / camera capture / MIME filters (flutter_inappwebview overrides + file_selector/image_picker)
 - [x] Geolocation permission handling
 - [x] Offline request interception + cache persistence
+- [x] Tests: `test/file_chooser_channel_test.dart`
 
 ## Core Library Parity (Implemented)
 
@@ -99,7 +100,7 @@ This document reflects current Flutter implementation status versus the Android/
 ## Test Coverage Gaps (Parity)
 
 - [ ] Navigator execution layer integration tests
-- [ ] Platform channel feature tests (file upload, geolocation, auth, offline)
+- [ ] Platform integration tests (file chooser, geolocation, auth, offline)
 
 ## Reference Files
 

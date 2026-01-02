@@ -38,6 +38,12 @@ dependencies:
   hotwire_native_flutter:
     path: ../
 
+dependency_overrides:
+  flutter_inappwebview_android:
+    path: ../vendor/flutter_inappwebview_android
+  flutter_inappwebview_ios:
+    path: ../vendor/flutter_inappwebview_ios
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

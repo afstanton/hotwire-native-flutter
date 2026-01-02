@@ -11,6 +11,7 @@ import '../session/route_decision.dart';
 import '../session/session.dart';
 import '../turbo/errors/visit_error.dart';
 import 'platform_hooks.dart';
+import 'file_chooser_channel.dart';
 import 'bridge_js.dart';
 import 'policy/webview_policy_decision.dart';
 import 'policy/webview_policy_request.dart';
@@ -86,6 +87,7 @@ class _HotwireWebViewState extends State<HotwireWebView> {
   @override
   void initState() {
     super.initState();
+    FileChooserChannel.ensureInitialized();
     _initialUrl = widget.url;
     _bridge = widget.bridge ?? Bridge();
     _bridge.replyHandler = _sendBridgeReply;
