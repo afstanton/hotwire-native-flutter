@@ -5,7 +5,10 @@ void main() {
   test('NavigationHostRegistry registers and activates hosts', () {
     final registry = NavigationHostRegistry();
     registry.ensureHost(id: 'main', startLocation: 'https://example.com');
-    registry.ensureHost(id: 'modal', startLocation: 'https://example.com/modal');
+    registry.ensureHost(
+      id: 'modal',
+      startLocation: 'https://example.com/modal',
+    );
 
     registry.setActive('main');
     expect(registry.activeHostId, 'main');

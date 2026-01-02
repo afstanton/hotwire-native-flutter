@@ -180,22 +180,28 @@ void main() {
     expect(stack.state.mainStack, ['https://example.com/home']);
   });
 
-  test('NavigationStack replaces when query string presentation is replace', () {
-    final stack = NavigationStack(startLocation: 'https://example.com/items');
-    stack.route(
-      location: 'https://example.com/items?filter=one',
-      properties: const {'query_string_presentation': 'replace'},
-    );
+  test(
+    'NavigationStack replaces when query string presentation is replace',
+    () {
+      final stack = NavigationStack(startLocation: 'https://example.com/items');
+      stack.route(
+        location: 'https://example.com/items?filter=one',
+        properties: const {'query_string_presentation': 'replace'},
+      );
 
-    final instruction = stack.route(
-      location: 'https://example.com/items?filter=two',
-      properties: const {'query_string_presentation': 'replace'},
-    );
+      final instruction = stack.route(
+        location: 'https://example.com/items?filter=two',
+        properties: const {'query_string_presentation': 'replace'},
+      );
 
-    expect(instruction.action, NavigationAction.replace);
-    expect(stack.state.mainStack.length, 1);
-    expect(stack.state.mainStack.last, 'https://example.com/items?filter=two');
-  });
+      expect(instruction.action, NavigationAction.replace);
+      expect(stack.state.mainStack.length, 1);
+      expect(
+        stack.state.mainStack.last,
+        'https://example.com/items?filter=two',
+      );
+    },
+  );
 
   test('NavigationStack clears modal stack for historical locations', () {
     final stack = NavigationStack(startLocation: 'https://example.com/home');
