@@ -5,7 +5,7 @@ This document reflects current Flutter implementation status versus the Android/
 ## Overall Status
 
 - Core library parity is largely complete.
-- Remaining work is concentrated in: platform channel items (file chooser / media capture).
+- Remaining work is concentrated in: platform channel items (file chooser / camera capture / MIME filters) and integration tests.
 
 ## Navigation (Execution Layer)
 
@@ -26,7 +26,7 @@ This document reflects current Flutter implementation status versus the Android/
   - [x] Session attach/detach coordination during transitions
   - [x] Historical location refresh helpers at navigator level
 
-## Platform Channel Features (Missing)
+## Platform Channel Features
 
 - [x] WebView default user agent integration (native UA + Hotwire prefix)
 - [x] WebView debugging toggle
@@ -42,7 +42,7 @@ This document reflects current Flutter implementation status versus the Android/
 
 - [x] Message encoding/decoding + metadata
 - [x] Component lifecycle + factories
-- [x] BridgeDelegate/BridgeDestination lifecycle + message gating
+- [x] BridgeDelegate/BridgeDestination lifecycle + message gating (framework-owned)
 - [x] Reply helpers (sync + async)
 - [x] JS bridge injection
 - [x] Tests: `test/bridge_test.dart`, `test/bridge_delegate_test.dart`
@@ -76,6 +76,7 @@ This document reflects current Flutter implementation status versus the Android/
 - [x] HotwireVisitable widget + route-aware attach/detach
 - [x] Keep-alive WebView support
 - [x] Snapshot cache per visitable
+- [x] Bridge lifecycle wiring handled by HotwireVisitable
 - [x] Tests: `test/hotwire_visitable_test.dart`
 
 ### WebView Policies
