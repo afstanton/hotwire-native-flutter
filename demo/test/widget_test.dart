@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotwire_native_flutter/hotwire_native_flutter.dart';
 import 'package:hotwire_native/main.dart';
@@ -35,9 +35,7 @@ void main() {
     expect(find.text('Resources'), findsOneWidget);
   });
 
-  testWidgets('Demo app clears navigation stack on clear_all', (
-    WidgetTester tester,
-  ) async {
+  test('Demo app routes clear_all presentations', () async {
     await _configurePathRules(r'''
       {
         "rules": [
@@ -49,41 +47,47 @@ void main() {
       }
     ''');
 
-    final navigatorKey = GlobalKey<NavigatorState>();
-    final session = Session(
+    final executor = _ExecutorSpy();
+    final navigator = HotwireNavigator(
+      navigatorKey: GlobalKey<NavigatorState>(),
+      executorOverride: executor,
       navigationStack: NavigationStack(startLocation: 'https://example.com'),
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        home: WebTab(
-          url: 'https://example.com',
-          session: session,
-          onOpenNumbers: (_, __) {},
-          onOpenModalWeb: (_, __, ___) {},
-          onOpenImage: (_) {},
-          webViewOverride: const SizedBox.shrink(),
-          adapterOverride: _TestAdapter(),
-        ),
-      ),
-    );
-    await tester.pump();
+    navigator.routeLocation('https://example.com/clear');
 
-    navigatorKey.currentState!.push(
-      MaterialPageRoute(builder: (_) => const SizedBox()),
-    );
-    await tester.pumpAndSettle();
-    expect(navigatorKey.currentState!.canPop(), isTrue);
-
-    session.handleTurboMessage('visitProposed', {
-      'location': 'https://example.com/clear',
-      'options': {'action': 'advance'},
-    });
-    await tester.pumpAndSettle();
-
-    expect(navigatorKey.currentState!.canPop(), isFalse);
+    expect(executor.calls, ['clearAll:https://example.com/clear']);
   });
+}
+
+class _ExecutorSpy implements NavigationExecutor {
+  final List<String> calls = [];
+
+  @override
+  void push(String location, {required bool isModal}) {}
+
+  @override
+  void replace(String location, {required bool isModal}) {}
+
+  @override
+  void pop({required bool isModal}) {}
+
+  @override
+  void clearAll(String location) {
+    calls.add('clearAll:$location');
+  }
+
+  @override
+  void replaceRoot(String location) {}
+
+  @override
+  void presentModal() {}
+
+  @override
+  void dismissModal() {}
+
+  @override
+  void refresh(String location, {required bool isModal}) {}
 }
 
 Future<void> _configurePathRules(String json) async {

@@ -89,8 +89,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  late final NavigationHostRegistry _navigationHosts;
-  final Map<String, Session> _tabSessions = {};
 
   List<DemoTab> get _tabs {
     final baseUrl = DemoConfig.baseUrl;
@@ -123,64 +121,11 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    _navigationHosts = NavigationHostRegistry();
-  }
-
-  void _openNumbersScreen(
-    Session modalSession,
-    InAppWebViewKeepAlive modalKeepAlive,
-  ) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => NumbersScreen(
-          baseUrl: DemoConfig.baseUrl,
-          modalSession: modalSession,
-          modalKeepAlive: modalKeepAlive,
-          routeObserver: demoRouteObserver,
-          webViewOverride: widget.webViewOverride,
-          adapterOverride: widget.adapterOverride,
-          controllerOverride: widget.controllerOverride,
-        ),
-      ),
-    );
-  }
-
-  void _openModalWeb(
-    String url,
-    Session modalSession,
-    InAppWebViewKeepAlive modalKeepAlive,
-  ) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => WebScreen(
-          url: url,
-          title: "Details",
-          session: modalSession,
-          isModal: true,
-          routeObserver: demoRouteObserver,
-          webViewOverride: widget.webViewOverride,
-          adapterOverride: widget.adapterOverride,
-          controllerOverride: widget.controllerOverride,
-          keepAlive: modalKeepAlive,
-        ),
-      ),
-    );
-  }
-
-  void _openImageViewer(String url) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => ImageViewerScreen(url: url),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final tabs = _tabs;
-    _ensureTabSessions(tabs);
 
     return Scaffold(
       body: IndexedStack(
@@ -189,11 +134,6 @@ class _MainScreenState extends State<MainScreen> {
           for (final tab in tabs)
             WebTab(
               url: tab.url,
-              session: _tabSessions[_hostIdForTab(tab)],
-              onOpenNumbers: _openNumbersScreen,
-              onOpenModalWeb: _openModalWeb,
-              onOpenImage: _openImageViewer,
-              routeObserver: demoRouteObserver,
               webViewOverride: widget.webViewOverride,
               adapterOverride: widget.adapterOverride,
               controllerOverride: widget.controllerOverride,
@@ -205,7 +145,6 @@ class _MainScreenState extends State<MainScreen> {
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
-            _navigationHosts.setActive(_hostIdForTab(tabs[index]));
           });
         },
         items: [
@@ -215,44 +154,10 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-
-  void _ensureTabSessions(List<DemoTab> tabs) {
-    for (final tab in tabs) {
-      final hostId = _hostIdForTab(tab);
-      final host = _navigationHosts.ensureHost(
-        id: hostId,
-        startLocation: tab.url,
-      );
-      _tabSessions.putIfAbsent(
-        hostId,
-        () => Session(navigationStack: host.stack),
-      );
-    }
-    if (_navigationHosts.activeHostId == null && tabs.isNotEmpty) {
-      _navigationHosts.setActive(_hostIdForTab(tabs.first));
-    }
-  }
-
-  String _hostIdForTab(DemoTab tab) {
-    return tab.title.toLowerCase().replaceAll(' ', '-');
-  }
 }
 
 class WebTab extends StatefulWidget {
   final String url;
-  final void Function(
-    Session modalSession,
-    InAppWebViewKeepAlive modalKeepAlive,
-  )
-  onOpenNumbers;
-  final void Function(
-    String url,
-    Session modalSession,
-    InAppWebViewKeepAlive modalKeepAlive,
-  )
-  onOpenModalWeb;
-  final void Function(String url) onOpenImage;
-  final Session? session;
   final Bridge? bridge;
   final RouteObserver<PageRoute<dynamic>>? routeObserver;
   final Widget? webViewOverride;
@@ -261,10 +166,6 @@ class WebTab extends StatefulWidget {
 
   const WebTab({
     required this.url,
-    required this.onOpenNumbers,
-    required this.onOpenModalWeb,
-    required this.onOpenImage,
-    this.session,
     this.bridge,
     this.routeObserver,
     this.webViewOverride,
@@ -278,182 +179,228 @@ class WebTab extends StatefulWidget {
 }
 
 class _WebTabState extends State<WebTab> {
-  late final Session _session;
-  late final Session _modalSession;
-  late final InAppWebViewKeepAlive _mainKeepAlive;
-  late final InAppWebViewKeepAlive _modalKeepAlive;
+  late final GlobalKey<NavigatorState> _navigatorKey;
+  late final HotwireRouteBuilder _routeBuilder;
+  late final NavigationStack _navigationStack;
+  late final HotwireSessionPair _sessionPair;
+  late final HotwireNavigator _navigator;
+  late final RouteObserver<PageRoute<dynamic>> _routeObserver;
   late final Bridge _bridge;
-  FormActionState? _formAction;
-  OverflowActionState? _overflowAction;
-  bool _showFormProgress = false;
+  late final DemoActionController _actions;
 
   @override
   void initState() {
     super.initState();
-    _session =
-        widget.session ??
-        Session(navigationStack: NavigationStack(startLocation: widget.url));
-    _modalSession = Session();
-    _mainKeepAlive = InAppWebViewKeepAlive();
-    _modalKeepAlive = InAppWebViewKeepAlive();
-    _session.delegate = _DemoSessionDelegate(
-      onFormSubmissionStarted: () {
-        if (!mounted) {
-          return;
-        }
-        setState(() => _showFormProgress = true);
-      },
-      onFormSubmissionFinished: () {
-        if (!mounted) {
-          return;
-        }
-        setState(() => _showFormProgress = false);
-      },
-      onVisitProposed: _handleVisitProposal,
+    _navigatorKey = GlobalKey<NavigatorState>();
+    _routeBuilder = const MaterialHotwireRouteBuilder();
+    _routeObserver =
+        widget.routeObserver ?? RouteObserver<PageRoute<dynamic>>();
+    _navigationStack = NavigationStack(startLocation: widget.url);
+    _sessionPair = HotwireSessionPair(
+      mainSession: Session(navigationStack: _navigationStack),
+      modalSession: Session(),
+      mainKeepAlive: InAppWebViewKeepAlive(),
+      modalKeepAlive: InAppWebViewKeepAlive(),
     );
-    _modalSession.delegate = _session.delegate;
+    _actions = DemoActionController();
     _bridge = widget.bridge ?? Bridge();
     _bridge.register(
       DemoFormComponent(
         onChanged: (state) {
-          if (!mounted) {
-            return;
-          }
-          setState(() => _formAction = state);
+          _actions.formAction.value = state;
         },
       ),
     );
     _bridge.register(
       DemoOverflowMenuComponent(
         onChanged: (state) {
-          if (!mounted) {
-            return;
-          }
-          setState(() => _overflowAction = state);
+          _actions.overflowAction.value = state;
         },
       ),
     );
     _bridge.register(DemoMenuComponent(state: this));
+
+    _navigator = HotwireNavigator(
+      navigatorKey: _navigatorKey,
+      sessions: _sessionPair,
+      navigationStack: _navigationStack,
+      routeBuilder: _routeBuilder,
+      routeObserver: _routeObserver,
+      delegate: DemoNavigatorDelegate(
+        actions: _actions,
+        sessionPair: _sessionPair,
+        routeObserver: _routeObserver,
+        webViewOverride: widget.webViewOverride,
+        adapterOverride: widget.adapterOverride,
+        controllerOverride: widget.controllerOverride,
+      ),
+      visitableBuilder: ({
+        required VisitProposal proposal,
+        required Session session,
+        required InAppWebViewKeepAlive keepAlive,
+        required RouteObserver<PageRoute<dynamic>> routeObserver,
+        required bool isModal,
+      }) {
+        return DemoWebScaffold(
+          title: isModal ? "Details" : "Hotwire Native Demo",
+          url: proposal.url.toString(),
+          session: session,
+          bridge: isModal ? null : _bridge,
+          isModal: isModal,
+          actions: _actions,
+          routeObserver: _routeObserver,
+          webViewOverride: widget.webViewOverride,
+          adapterOverride: widget.adapterOverride,
+          controllerOverride: widget.controllerOverride,
+          keepAlive: keepAlive,
+          onRouteRequest: (location, properties) {
+            _navigator.routeLocation(
+              location,
+              properties: properties,
+            );
+          },
+        );
+      },
+    );
   }
 
-  void _handleRouteRequest(String location, Map<String, dynamic> properties) {
-    final uri = Uri.tryParse(location);
-    if (uri == null) {
-      return;
-    }
-
-    final instruction = _handleNavigationInstruction(
-      uri.toString(),
-      properties: properties,
-    );
-    if (instruction?.action == NavigationAction.none ||
-        instruction?.action == NavigationAction.refresh ||
-        instruction?.action == NavigationAction.pop) {
-      return;
-    }
-
-    _handleNativeRoute(
-      uri,
-      isModal:
-          instruction?.targetStack == NavigationStackType.modal ||
-          _isModalPath(uri),
+  @override
+  Widget build(BuildContext context) {
+    return Navigator(
+      key: _navigatorKey,
+      observers: _navigator.observers,
+      onGenerateInitialRoutes: (navigator, _) {
+        final proposal = VisitProposal(
+          url: Uri.parse(widget.url),
+          options: const VisitOptions(),
+          properties: Hotwire().config.pathConfiguration.properties(widget.url),
+        );
+        final page = DemoWebScaffold(
+          title: "Hotwire Native Demo",
+          url: widget.url,
+          session: _sessionPair.mainSession,
+          bridge: _bridge,
+          actions: _actions,
+          routeObserver: _routeObserver,
+          webViewOverride: widget.webViewOverride,
+          adapterOverride: widget.adapterOverride,
+          controllerOverride: widget.controllerOverride,
+          keepAlive: _sessionPair.mainKeepAlive,
+          onRouteRequest: (location, properties) {
+            _navigator.routeLocation(
+              location,
+              properties: properties,
+            );
+          },
+        );
+        final route = _routeBuilder.buildRoute(
+          page,
+          isModal: false,
+          location: proposal.url.toString(),
+        );
+        return [route];
+      },
     );
   }
+}
 
-  void _handleVisitProposal(VisitProposal proposal) {
-    final uri = proposal.url;
-    final instruction = _handleNavigationInstruction(
-      uri.toString(),
-      properties: proposal.properties,
-      options: proposal.options,
-    );
-    if (instruction?.action == NavigationAction.none ||
-        instruction?.action == NavigationAction.refresh ||
-        instruction?.action == NavigationAction.pop) {
-      return;
-    }
+class DemoActionController {
+  final ValueNotifier<FormActionState?> formAction =
+      ValueNotifier<FormActionState?>(null);
+  final ValueNotifier<OverflowActionState?> overflowAction =
+      ValueNotifier<OverflowActionState?>(null);
+  final ValueNotifier<bool> showFormProgress = ValueNotifier<bool>(false);
 
-    final handled = _handleNativeRoute(
-      uri,
-      isModal:
-          instruction?.targetStack == NavigationStackType.modal ||
-          proposal.context == PresentationContext.modal ||
-          _isModalPath(uri),
-    );
-    if (handled) {
-      return;
-    }
+  void dispose() {
+    formAction.dispose();
+    overflowAction.dispose();
+    showFormProgress.dispose();
+  }
+}
 
-    var options = proposal.options;
-    if (instruction?.action == NavigationAction.replaceRoot) {
-      options = VisitOptions(
-        action: VisitAction.replace,
-        snapshotHTML: options.snapshotHTML,
-        response: options.response,
+class DemoNavigatorDelegate extends HotwireNavigatorDelegate {
+  final DemoActionController actions;
+  final HotwireSessionPair sessionPair;
+  final RouteObserver<PageRoute<dynamic>>? routeObserver;
+  final Widget? webViewOverride;
+  final SessionWebViewAdapter? adapterOverride;
+  final Object? controllerOverride;
+
+  DemoNavigatorDelegate({
+    required this.actions,
+    required this.sessionPair,
+    this.routeObserver,
+    this.webViewOverride,
+    this.adapterOverride,
+    this.controllerOverride,
+  });
+
+  @override
+  HotwireProposalResult handle(VisitProposal proposal, HotwireNavigator navigator) {
+    if (_isNumbersIndex(proposal.url)) {
+      return HotwireProposalResult.acceptCustom(
+        NumbersScreen(
+          baseUrl: DemoConfig.baseUrl,
+          onOpenDetail: (url) {
+            navigator.routeLocation(
+              url,
+              properties: const {'context': 'modal'},
+              parameters: const {'demo_modal_override': true},
+            );
+          },
+        ),
       );
     }
-    _session.visitWithOptions(uri.toString(), options: options);
+
+    if (_isNumbersDetail(proposal.url)) {
+      final parameters = proposal.parameters ?? const <String, dynamic>{};
+      if (proposal.context != PresentationContext.modal &&
+          parameters['demo_modal_override'] != true) {
+        final properties = Map<String, dynamic>.from(proposal.properties)
+          ..['context'] = 'modal';
+        navigator.routeLocation(
+          proposal.url.toString(),
+          options: proposal.options,
+          properties: properties,
+          parameters: {
+            ...parameters,
+            'demo_modal_override': true,
+          },
+        );
+        return HotwireProposalResult.reject;
+      }
+      return HotwireProposalResult.acceptCustom(
+        WebScreen(
+          url: proposal.url.toString(),
+          title: "Details",
+          session: sessionPair.modalSession,
+          isModal: true,
+          routeObserver: routeObserver,
+          webViewOverride: webViewOverride,
+          adapterOverride: adapterOverride,
+          controllerOverride: controllerOverride,
+          keepAlive: sessionPair.modalKeepAlive,
+        ),
+      );
+    }
+
+    if (_isImageUrl(proposal.url)) {
+      return HotwireProposalResult.acceptCustom(
+        ImageViewerScreen(url: proposal.url.toString()),
+      );
+    }
+
+    return HotwireProposalResult.accept;
   }
 
-  NavigationInstruction? _handleNavigationInstruction(
-    String location, {
-    Map<String, dynamic>? properties,
-    VisitOptions? options,
-  }) {
-    final instruction = _session.routeWithNavigationStack(
-      location,
-      properties: properties,
-      options: options,
-    );
-    if (instruction == null) {
-      return null;
-    }
-
-    if (instruction.didDismissModal && mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
-
-    if (instruction.action == NavigationAction.refresh &&
-        instruction.refreshLocation != null) {
-      _session.restoreOrVisit(instruction.refreshLocation!);
-    }
-
-    if ((instruction.action == NavigationAction.clearAll ||
-            instruction.action == NavigationAction.replaceRoot) &&
-        mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
-
-    if (instruction.action == NavigationAction.pop && mounted) {
-      final navigator = Navigator.of(context);
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
-      if (instruction.refreshLocation != null) {
-        _session.restoreOrVisit(instruction.refreshLocation!);
-      }
-    }
-
-    return instruction;
+  @override
+  void sessionDidStartFormSubmission(Session session) {
+    actions.showFormProgress.value = true;
   }
 
-  bool _handleNativeRoute(Uri uri, {required bool isModal}) {
-    if (_isNumbersIndex(uri)) {
-      widget.onOpenNumbers(_modalSession, _modalKeepAlive);
-      return true;
-    }
-
-    if (_isNumbersDetail(uri) || isModal) {
-      widget.onOpenModalWeb(uri.toString(), _modalSession, _modalKeepAlive);
-      return true;
-    }
-
-    if (_isImageUrl(uri)) {
-      widget.onOpenImage(uri.toString());
-      return true;
-    }
-
-    return false;
+  @override
+  void sessionDidFinishFormSubmission(Session session) {
+    actions.showFormProgress.value = false;
   }
 
   bool _isNumbersIndex(Uri uri) {
@@ -473,13 +420,6 @@ class _WebTabState extends State<WebTab> {
     return int.tryParse(uri.pathSegments[1]) != null;
   }
 
-  bool _isModalPath(Uri uri) {
-    final path = uri.path;
-    return path.endsWith("/new") ||
-        path.endsWith("/edit") ||
-        path.contains("/modal");
-  }
-
   bool _isImageUrl(Uri uri) {
     final path = uri.path.toLowerCase();
     return path.endsWith(".bmp") ||
@@ -491,74 +431,102 @@ class _WebTabState extends State<WebTab> {
         path.endsWith(".svg") ||
         path.endsWith(".webp");
   }
+}
+
+class DemoWebScaffold extends StatelessWidget {
+  final String title;
+  final String url;
+  final Session session;
+  final Bridge? bridge;
+  final bool isModal;
+  final DemoActionController actions;
+  final HotwireRouteRequestCallback onRouteRequest;
+  final RouteObserver<PageRoute<dynamic>>? routeObserver;
+  final Widget? webViewOverride;
+  final SessionWebViewAdapter? adapterOverride;
+  final Object? controllerOverride;
+  final InAppWebViewKeepAlive? keepAlive;
+
+  const DemoWebScaffold({
+    required this.title,
+    required this.url,
+    required this.session,
+    required this.actions,
+    required this.onRouteRequest,
+    this.bridge,
+    this.isModal = false,
+    this.routeObserver,
+    this.webViewOverride,
+    this.adapterOverride,
+    this.controllerOverride,
+    this.keepAlive,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hotwire Native Demo'),
-        actions: [
-          if (_showFormProgress)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          if (_overflowAction != null)
-            IconButton(
-              tooltip: _overflowAction!.label,
-              icon: const Icon(Icons.more_horiz),
-              onPressed: _overflowAction!.onPressed,
-            ),
-          if (_formAction != null)
-            TextButton(
-              onPressed: _formAction!.enabled ? _formAction!.onPressed : null,
-              child: Text(_formAction!.title),
-            ),
-        ],
+        title: Text(title),
+        leading: isModal ? const CloseButton() : null,
+        actions: isModal
+            ? null
+            : [
+                ValueListenableBuilder<bool>(
+                  valueListenable: actions.showFormProgress,
+                  builder: (_, value, __) {
+                    if (!value) {
+                      return const SizedBox.shrink();
+                    }
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  },
+                ),
+                ValueListenableBuilder<OverflowActionState?>(
+                  valueListenable: actions.overflowAction,
+                  builder: (_, value, __) {
+                    if (value == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return IconButton(
+                      tooltip: value.label,
+                      icon: const Icon(Icons.more_horiz),
+                      onPressed: value.onPressed,
+                    );
+                  },
+                ),
+                ValueListenableBuilder<FormActionState?>(
+                  valueListenable: actions.formAction,
+                  builder: (_, value, __) {
+                    if (value == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return TextButton(
+                      onPressed: value.enabled ? value.onPressed : null,
+                      child: Text(value.title),
+                    );
+                  },
+                ),
+              ],
       ),
       body: HotwireVisitable(
-        url: widget.url,
-        session: _session,
-        bridge: _bridge,
-        onRouteRequest: _handleRouteRequest,
-        routeObserver: widget.routeObserver,
-        webViewOverride: widget.webViewOverride,
-        adapterOverride: widget.adapterOverride,
-        controllerOverride: widget.controllerOverride,
-        keepAlive: _mainKeepAlive,
+        url: url,
+        session: session,
+        bridge: bridge,
+        onRouteRequest: onRouteRequest,
+        routeObserver: routeObserver,
+        webViewOverride: webViewOverride,
+        adapterOverride: adapterOverride,
+        controllerOverride: controllerOverride,
+        keepAlive: keepAlive,
       ),
     );
-  }
-}
-
-class _DemoSessionDelegate extends SessionDelegate {
-  final VoidCallback onFormSubmissionStarted;
-  final VoidCallback onFormSubmissionFinished;
-  final void Function(VisitProposal proposal) onVisitProposed;
-
-  _DemoSessionDelegate({
-    required this.onFormSubmissionStarted,
-    required this.onFormSubmissionFinished,
-    required this.onVisitProposed,
-  });
-
-  @override
-  void sessionDidStartFormSubmission(Session session) {
-    onFormSubmissionStarted();
-  }
-
-  @override
-  void sessionDidFinishFormSubmission(Session session) {
-    onFormSubmissionFinished();
-  }
-
-  @override
-  void sessionDidProposeVisit(Session session, VisitProposal proposal) {
-    onVisitProposed(proposal);
   }
 }
 
@@ -611,21 +579,11 @@ class WebScreen extends StatelessWidget {
 
 class NumbersScreen extends StatelessWidget {
   final String baseUrl;
-  final Session modalSession;
-  final InAppWebViewKeepAlive modalKeepAlive;
-  final RouteObserver<PageRoute<dynamic>>? routeObserver;
-  final Widget? webViewOverride;
-  final SessionWebViewAdapter? adapterOverride;
-  final Object? controllerOverride;
+  final void Function(String url) onOpenDetail;
 
   const NumbersScreen({
     required this.baseUrl,
-    required this.modalSession,
-    required this.modalKeepAlive,
-    this.routeObserver,
-    this.webViewOverride,
-    this.adapterOverride,
-    this.controllerOverride,
+    required this.onOpenDetail,
     super.key,
   });
 
@@ -643,22 +601,7 @@ class NumbersScreen extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               final url = "$baseUrl/numbers/$number";
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  fullscreenDialog: true,
-                  builder: (_) => WebScreen(
-                    url: url,
-                    title: "Number $number",
-                    session: modalSession,
-                    isModal: true,
-                    routeObserver: routeObserver,
-                    webViewOverride: webViewOverride,
-                    adapterOverride: adapterOverride,
-                    controllerOverride: controllerOverride,
-                    keepAlive: modalKeepAlive,
-                  ),
-                ),
-              );
+              onOpenDetail(url);
             },
           );
         },
